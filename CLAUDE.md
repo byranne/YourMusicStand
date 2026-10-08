@@ -41,12 +41,15 @@ vite.config.ts             React, Tailwind, PWA manifest, @ alias, Vitest
 src/
   main.tsx                 QueryClientProvider → AuthProvider → RouterProvider
   router.tsx               route table
-  routes/                  guards (RequireSession/GuestOnly), TabsLayout, pages
+  routes/                  guards (RequireSession/GuestOnly), TabsLayout (Home / Log / My List), pages; Profile is reached from the header icon
   lib/supabase.ts          Supabase client (localStorage session)
   lib/database.types.ts    hand-written DB types (regenerate once linked)
-  lib/queries/             TanStack Query hooks (useSession, useSendCode, useVerifyCode, useSignOut…)
-  lib/schemas/             zod schemas
-  components/ui/           primitives (Button, Screen, TextField, then Card, Sheet, Chip, CoverArt, ProgressBar)
+  lib/musicbrainz.ts       the only MusicBrainz caller: query building, mapping, dedupe/ranking, rate limit
+  lib/library.ts           pure library logic: SongCandidate, findEntry, filterLibrary, parseCustomQuery, status labels
+  lib/queries/             TanStack Query hooks (useSession, useSignIn, useSignOut, useLibrary, useLogSong, useUpdateEntry, useRemoveEntry, useSongSearch)
+  lib/schemas/             zod schemas (auth, entry details, custom song)
+  components/ui/           primitives (Button, Screen, TextField, TextArea, Sheet, Chip, CoverArt)
+  components/              shared pieces: SongSheet (the song mini page: log, edit, remove), LogButton, EntryDetailsForm, SongRow, ProfileButton
   theme/                   tokens.css (Tailwind @theme, light + dark) + colors.ts (for non-CSS consumers); keep them in sync
 public/                    icons, favicon (generated, don't edit by hand)
 assets/                    icon.svg: the icon source; `npm run icons` renders it into public/ (favicon included)
@@ -60,6 +63,7 @@ supabase/
 - Colors come from theme tokens (`bg-button`, `text-muted`…). No hex values and no Tailwind palette colors (`bg-teal-500`, `text-gray-400`) in components. See **Design** below.
 - Build pages from `src/components/ui/` primitives. Extend a primitive rather than styling one page ad hoc.
 - Pure logic (status transitions, streaks, stats, MusicBrainz mapping) goes in plain TS modules with a `*.test.ts` next to it.
+- Every way of adding a song produces a `SongCandidate` and goes through `useLogSong()`. A new source (import, shared link) adds a candidate producer, not a second write path.
 - Data is small per user. Load a user's whole library and sessions once, then filter, sort, and compute stats on the client.
 - Schema changes are **always** a new migration file. Never edit a migration once it has been pushed to the hosted project.
 - Env vars are `VITE_*`, and everything with that prefix ships in the bundle.
@@ -78,6 +82,7 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 | `brand-soft` / `on-brand-soft` | `#E0F4F3` / `#0D5754` | `#133A38` / `#7EE0DA` | Selected pill or tab, and the text/icon on it |
 | `button` / `on-button` | `#167F7B` / `#FFFFFF` | `#3CC4BE` / `#08302E` | Primary button fill and its label |
 | `danger` | `#C2343F` | `#FF7A85` | Errors, destructive actions |
+| `scrim` | `#142221` | `#000000` | Dimmed backdrop behind a sheet, always at reduced opacity (`bg-scrim/50`) |
 | `status-want` / `on-status-want` | `#FFF0D6` / `#8A5A00` | `#3A2E12` / `#F5C46A` | "Want to learn" chip |
 | `status-learning` / `on-status-learning` | `#E0F4F3` / `#0D5754` | `#133A38` / `#7EE0DA` | "Learning" chip |
 | `status-learned` / `on-status-learned` | `#E6EAF7` / `#33408A` | `#222A45` / `#A9B4F0` | "Learned" chip |

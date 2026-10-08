@@ -13,6 +13,7 @@
   --color-button: #167f7b;
   --color-on-button: #ffffff;
   --color-danger: #c2343f;
+  --color-scrim: #142221;
   --color-status-want: #fff0d6;
   --color-on-status-want: #8a5a00;
   --color-status-learning: #e0f4f3;
@@ -36,6 +37,7 @@
     --color-button: #3cc4be;
     --color-on-button: #08302e;
     --color-danger: #ff7a85;
+    --color-scrim: #000000;
     --color-status-want: #3a2e12;
     --color-on-status-want: #f5c46a;
     --color-status-learning: #133a38;

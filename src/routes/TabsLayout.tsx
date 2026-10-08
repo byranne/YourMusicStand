@@ -1,20 +1,19 @@
-import { ChartColumn, Dumbbell, Library, Search, type LucideIcon } from 'lucide-react';
+import { House, ListMusic, NotebookPen, type LucideIcon } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router';
 
 const tabs: { to: string; label: string; icon: LucideIcon }[] = [
-  { to: '/', label: 'Library', icon: Library },
-  { to: '/search', label: 'Search', icon: Search },
-  { to: '/practice', label: 'Practice', icon: Dumbbell },
-  { to: '/stats', label: 'Stats', icon: ChartColumn },
+  { to: '/', label: 'Home', icon: House },
+  { to: '/log', label: 'Log', icon: NotebookPen },
+  { to: '/list', label: 'My List', icon: ListMusic },
 ];
 
 export function TabsLayout() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 pb-[calc(5rem+max(0.75rem,env(safe-area-inset-bottom)))]">
         <Outlet />
       </main>
-      <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-4 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto max-w-md rounded-3xl border border-border bg-surface shadow-lg">
         <ul className="flex h-16">
           {tabs.map(({ to, label, icon: Icon }) => (
             <li key={to} className="flex-1">

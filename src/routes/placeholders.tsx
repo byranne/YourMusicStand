@@ -1,18 +1,11 @@
 import { ChevronLeft } from 'lucide-react';
 import { Link, useParams } from 'react-router';
 
+import { ProfileButton } from '@/components/ProfileButton';
 import { Screen } from '@/components/ui';
 
-export function LibraryPage() {
-  return <Screen title="Library" />;
-}
-
-export function SearchPage() {
-  return <Screen title="Search" />;
-}
-
-export function PracticePage() {
-  return <Screen title="Practice" />;
+export function HomePage() {
+  return <Screen title="Home" action={<ProfileButton />} />;
 }
 
 export function SongPage() {
@@ -22,7 +15,7 @@ export function SongPage() {
     <Screen>
       <Link to="/" className="mb-4 flex items-center gap-1 text-muted">
         <ChevronLeft className="size-5" aria-hidden />
-        Library
+        Home
       </Link>
       <p className="text-muted">Song {id}</p>
     </Screen>
