@@ -10,10 +10,12 @@ type SongRowProps = {
   coverUrl: string | null;
   // Set when the song is in the user's library.
   status?: SongStatus;
+  // Shown instead of the status, e.g. the time spent on the song.
+  detail?: string;
   onClick: () => void;
 };
 
-export function SongRow({ title, artist, coverUrl, status, onClick }: SongRowProps) {
+export function SongRow({ title, artist, coverUrl, status, detail, onClick }: SongRowProps) {
   return (
     <button
       type="button"
@@ -25,7 +27,9 @@ export function SongRow({ title, artist, coverUrl, status, onClick }: SongRowPro
         <span className="truncate font-semibold text-text">{title}</span>
         <span className="truncate text-sm text-muted">{artist}</span>
       </span>
-      {status ? (
+      {detail ? (
+        <span className="shrink-0 text-sm font-semibold text-text tabular-nums">{detail}</span>
+      ) : status ? (
         <Chip label={statusLabels[status]} tone={status} />
       ) : (
         <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />

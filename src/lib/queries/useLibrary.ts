@@ -3,19 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SongStatus, Tables } from '../database.types';
 import { defaultsForStatus, type LibraryEntry, type SongCandidate } from '../library';
 import { supabase } from '../supabase';
+import { removeResourceFiles } from './resourceFiles';
 import { useSession } from './useSession';
 
-const ENTRY_SELECT = '*, song:songs(*)';
+const ENTRY_SELECT = '*, song:songs(*), resources(*)';
 const PENDING_PREFIX = 'pending-';
 
-const libraryKey = (userId: string | undefined) => ['library', userId] as const;
+export const libraryKey = (userId: string | undefined) => ['library', userId] as const;
 
-export type EntryPatch = Partial<
-  Pick<
-    Tables<'user_songs'>,
-    'status' | 'progress' | 'difficulty' | 'tuning' | 'capo' | 'notes' | 'tab_url' | 'video_url'
-  >
->;
+export type EntryPatch = Partial<Pick<Tables<'user_songs'>, 'status' | 'progress' | 'notes'>>;
 
 // An entry that was added optimistically and has no row id yet, so it can't be edited.
 export function isPendingEntry(entry: LibraryEntry): boolean {
@@ -83,13 +79,12 @@ function pendingEntry(candidate: SongCandidate, status: SongStatus, userId: stri
     tuning: null,
     capo: null,
     notes: null,
-    tab_url: null,
-    video_url: null,
     started_at: null,
     learned_at: null,
     created_at: now,
     updated_at: now,
     ...defaultsForStatus(status),
+    resources: [],
     song: {
       id,
       mbid: catalog?.mbid ?? null,
@@ -200,6 +195,8 @@ export function useRemoveEntry() {
           ? await supabase.from('songs').delete().eq('id', entry.song_id)
           : await supabase.from('user_songs').delete().eq('id', entry.id);
       if (error) throw error;
+      // The resource rows cascade with the entry; their files don't.
+      await removeResourceFiles(entry.resources);
     },
     onMutate: async (entry) => {
       await queryClient.cancelQueries({ queryKey: key });

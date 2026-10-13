@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Drawer } from 'vaul';
 
@@ -9,7 +10,7 @@ type SheetProps = {
   children: ReactNode;
 };
 
-// Bottom sheet: drag down or tap outside to close. Content scrolls inside, and
+// Bottom sheet: drag down, tap outside or tap the X to close. Content scrolls inside, and
 // the bottom padding clears the iOS home indicator.
 export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
   return (
@@ -20,9 +21,17 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
           aria-describedby={undefined}
           className="fixed inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] max-w-md flex-col rounded-t-3xl border border-b-0 border-border bg-surface outline-none"
         >
-          <div className="mx-auto mt-3 mb-1 h-1.5 w-10 shrink-0 rounded-full bg-border" aria-hidden />
+          <div className="relative h-12 shrink-0">
+            <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-border" aria-hidden />
+            <Drawer.Close
+              aria-label="Close"
+              className="absolute top-1 right-2 flex size-11 items-center justify-center rounded-full text-muted active:opacity-80"
+            >
+              <X className="size-5" aria-hidden />
+            </Drawer.Close>
+          </div>
           <Drawer.Title className="sr-only">{title}</Drawer.Title>
-          <div className="overflow-y-auto px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="overflow-y-auto px-5 pt-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             {children}
           </div>
         </Drawer.Content>

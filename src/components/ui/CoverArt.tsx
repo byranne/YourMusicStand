@@ -3,11 +3,13 @@ import { useState } from 'react';
 
 type CoverArtProps = {
   url: string | null;
-  size?: 'sm' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
 };
 
 const sizes = {
+  xs: { box: 'size-8 rounded-lg', icon: 'size-4' },
   sm: { box: 'size-12 rounded-xl', icon: 'size-5' },
+  md: { box: 'size-16 rounded-xl', icon: 'size-6' },
   lg: { box: 'size-28 rounded-2xl', icon: 'size-10' },
 };
 

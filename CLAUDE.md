@@ -21,52 +21,29 @@ Plans:
 - **Keep it small.** Pick the simplest thing that works, unless it would force a data migration or a rewrite when friends join.
 
 ## Stack
-- **App:** Vite + React 19 + TypeScript, React Router (`createBrowserRouter`), a static SPA.
-- **PWA:** `vite-plugin-pwa` (manifest, service worker, auto-update). iOS meta tags are in `index.html`.
-- **UI:** Tailwind CSS v4 (tokens in `src/theme/tokens.css`), `lucide-react`, `vaul` for bottom sheets.
-- **Data:** TanStack Query, with optimistic updates for library/status/progress mutations.
-- **Forms:** `react-hook-form` (`register`) + `zod`.
+- **Data:** optimistic updates for library/status/progress mutations.
 - **Backend:** Supabase: Postgres, Auth, RLS. There is no custom server.
 - **Auth:** invite-only email + password (`signInWithPassword`).
   - No magic links or emailed codes: on iOS a link opens Safari, which doesn't share storage with the home-screen app, and hosted email is rate-limited.
   - Accounts are created from the Supabase dashboard, and sign-ups are disabled.
 - **Song data:** MusicBrainz + Cover Art Archive, called **from the browser** (both send CORS `*`). New catalog songs go through the `add_musicbrainz_song` RPC.
-- **Tests:** Vitest for pure logic. pgTAP for schema/RLS.
 - **Hosting:** `npm run build` → Cloudflare Pages (free, SPA fallback is automatic).
-
-## Layout
-```
-index.html                 iOS PWA meta, viewport-fit=cover
-vite.config.ts             React, Tailwind, PWA manifest, @ alias, Vitest
-src/
-  main.tsx                 QueryClientProvider → AuthProvider → RouterProvider
-  router.tsx               route table
-  routes/                  guards (RequireSession/GuestOnly), TabsLayout (Home / Log / My List), pages; Profile is reached from the header icon
-  lib/supabase.ts          Supabase client (localStorage session)
-  lib/database.types.ts    hand-written DB types (regenerate once linked)
-  lib/musicbrainz.ts       the only MusicBrainz caller: query building, mapping, dedupe/ranking, rate limit
-  lib/library.ts           pure library logic: SongCandidate, findEntry, filterLibrary, parseCustomQuery, status labels
-  lib/queries/             TanStack Query hooks (useSession, useSignIn, useSignOut, useLibrary, useLogSong, useUpdateEntry, useRemoveEntry, useSongSearch)
-  lib/schemas/             zod schemas (auth, entry details, custom song)
-  components/ui/           primitives (Button, Screen, TextField, TextArea, Sheet, Chip, CoverArt)
-  components/              shared pieces: SongSheet (the song mini page: log, edit, remove), LogButton, EntryDetailsForm, SongRow, ProfileButton
-  theme/                   tokens.css (Tailwind @theme, light + dark) + colors.ts (for non-CSS consumers); keep them in sync
-public/                    icons, favicon (generated, don't edit by hand)
-assets/                    icon.svg: the icon source; `npm run icons` renders it into public/ (favicon included)
-supabase/
-  migrations/*.sql         0001_init (squashed baseline: tables, RLS, triggers, add_musicbrainz_song)
-  tests/*.test.sql         pgTAP
-```
 
 ## Conventions
 - Pages don't call Supabase directly. All reads and writes go through hooks in `src/lib/queries/`.
 - Colors come from theme tokens (`bg-button`, `text-muted`…). No hex values and no Tailwind palette colors (`bg-teal-500`, `text-gray-400`) in components. See **Design** below.
 - Build pages from `src/components/ui/` primitives. Extend a primitive rather than styling one page ad hoc.
 - Pure logic (status transitions, streaks, stats, MusicBrainz mapping) goes in plain TS modules with a `*.test.ts` next to it.
+- Four tabs, one job each: Home (`/`, Start practice and this week's stats), My Log (`/log`, all-time stats and practice sessions; `/log?session=<id>` opens one), My List (`/list`, the library by status) and Add (`/add`, search and add songs). Links meant for adding a song go to `/add`.
+- Account (email, sign out) is a sheet opened from the header button (`AccountButton`), not a route.
 - Every way of adding a song produces a `SongCandidate` and goes through `useLogSong()`. A new source (import, shared link) adds a candidate producer, not a second write path.
 - Data is small per user. Load a user's whole library and sessions once, then filter, sort, and compute stats on the client.
 - Schema changes are **always** a new migration file. Never edit a migration once it has been pushed to the hosted project.
 - Env vars are `VITE_*`, and everything with that prefix ships in the bundle.
+- `public/` icons and favicon are generated from `assets/icon.svg`. Don't edit them by hand.
+- `src/lib/queries/resourceFiles.ts` is the only Supabase Storage caller.
+- `src/lib/database.types.ts` is hand-written (regenerate once the project is linked).
+- `src/theme/tokens.css` and `src/theme/colors.ts` must stay in sync.
 
 ## Design
 The palette below is the whole color system. New UI uses these tokens and nothing else. If a design needs a color that isn't here, add a token (light and dark) to `src/theme/tokens.css` and `src/theme/colors.ts` and to this table, rather than reaching for a one-off value.
@@ -83,6 +60,8 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 | `button` / `on-button` | `#167F7B` / `#FFFFFF` | `#3CC4BE` / `#08302E` | Primary button fill and its label |
 | `danger` | `#C2343F` | `#FF7A85` | Errors, destructive actions |
 | `scrim` | `#142221` | `#000000` | Dimmed backdrop behind a sheet, always at reduced opacity (`bg-scrim/50`) |
+| `streak` | `#E8590C` | `#FF8A4C` | The streak flame icon. Nothing else |
+| `streak-soft` / `on-streak-soft` | `#FFE8D9` / `#8A3A00` | `#3D2414` / `#FFB58A` | Streak badge behind the flame, and the count on it |
 | `status-want` / `on-status-want` | `#FFF0D6` / `#8A5A00` | `#3A2E12` / `#F5C46A` | "Want to learn" chip |
 | `status-learning` / `on-status-learning` | `#E0F4F3` / `#0D5754` | `#133A38` / `#7EE0DA` | "Learning" chip |
 | `status-learned` / `on-status-learned` | `#E6EAF7` / `#33408A` | `#222A45` / `#A9B4F0` | "Learned" chip |
@@ -92,7 +71,7 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 - **Don't use `dark:` variants for color.** The tokens switch on `prefers-color-scheme` by themselves, so one class covers both modes. Check every new screen in both.
 - Always pair a fill with its `on-` token (`bg-button text-on-button`). `src/theme/colors.test.ts` checks these pairs meet WCAG AA and that `tokens.css` and `colors.ts` agree.
 - Shapes: page on `background`; content in `surface` cards with a 1px `border` and generous radius (`rounded-2xl` rows, `rounded-3xl` containers); buttons and inputs `rounded-xl`; chips and pills `rounded-full`.
-- Teal is the only brand color. Amber and indigo appear only in the status chips.
+- Teal is the only brand color. Amber and indigo appear only in the status chips, and orange only in the streak flame.
 - The app icon (`assets/icon.svg`) uses the same teal. Re-render with `npm run icons` after changing it.
 
 ## Data model
@@ -103,14 +82,25 @@ The palette below is the whole color system. New UI uses these tokens and nothin
   - Custom rows: `created_by`, private to their creator.
 - `user_songs`: one row per user per song (`unique(user_id, song_id)`).
   - `status` enum: `want_to_learn`, `learning`, `learned`, `shelved`.
-  - Other columns: `progress` 0–100, `difficulty` 1–5, `tuning`, `capo`, `notes`, `tab_url`, `video_url`, `started_at`, `learned_at`, `updated_at`.
-- `practice_sessions`: `user_song_id`, `practiced_at`, `duration_min`, `focus` (riff/solo/rhythm/full_song), `notes`, `progress_after`.
+  - Other columns: `progress` 0–100, `notes`, `started_at`, `learned_at`, `updated_at`. `difficulty`, `tuning` and `capo` still exist but the UI no longer uses them.
+- `resources`: the links and files kept on a library entry (`user_song_id`), loaded with the library.
+  - `kind` is `link` | `file`. A link has an http(s) `url`; a file has a `storage_path` plus `mime_type` and `size_bytes`.
+  - Files live in the private `resources` storage bucket (20 MB per file) at `{user_id}/{user_song_id}/{random}.{ext}` and are opened through signed URLs.
+  - Rows are added or removed, never updated. They cascade with the entry; the app deletes the files itself.
+- `practice_sessions`: one sitting that can cover several songs: `practiced_at` (start time), `duration_sec` (what is stored; `duration_min` is a generated whole-minute column that the stats read), `feel` (`practice_feel`: `rough` | `okay` | `great`), `notes`.
+- `practice_session_songs`: which `user_songs` a session covered (`session_id`, `user_song_id`, `user_id`; primary key on the first two). Cascades with both sides, so deleting a library entry keeps the session.
+- Sessions are written only by the `log_practice_session()` RPC (`security invoker`, so RLS applies), which saves the session and its songs in one transaction.
+- The running session is **not** in Supabase: it lives in `localStorage` (`src/lib/activeSession.ts`, key includes the user id) as `startedAt` / `lastSeenAt` / opened songs plus `pausedAt` / `pausedMs` for the pause button (paused time is left out of the duration), and is written to the database only when the recap is saved.
+- There is no per-song progress number any more. Improvement is shown as days played, time and per-song totals (`src/lib/stats.ts`). The `progress` column still exists but the UI doesn't use it.
 - A trigger sets `learned_at` when status becomes `learned`, and `started_at` when status becomes `learning` or `learned`.
 - Social features later (follows, ratings, friend libraries) are **additive** tables and policies, with no data migration.
 
 ## Security (RLS is the boundary; the anon key is public)
 - Every table has RLS enabled.
 - `user_songs`, `practice_sessions`: owner-only CRUD (`user_id = auth.uid()`).
+- `practice_session_songs`: owner-only select/insert/delete; insert also requires that the session and the `user_songs` row both belong to the owner.
+- `resources`: owner-only select/insert/delete, and only on the owner's own `user_songs`.
+- Storage bucket `resources` is private. Its `storage.objects` policies confine each user to the folder named after their user id.
 - `songs`:
   - `musicbrainz` rows are readable by every authenticated user. Clients can't insert them directly, only through the RPC.
   - `custom` rows are CRUD for their creator only.
@@ -127,12 +117,6 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 - If MusicBrainz has no match, fall back to the custom-song form.
 
 ## Commands
-- `npm run dev`: dev server (http://localhost:5173)
-- `npm run typecheck`: `tsc --noEmit`
-- `npm test`: Vitest (`vitest run`)
-- `npm run build`: typecheck + production build to `dist/` (includes the service worker)
-- `npm run preview`: serve the production build
-- `npm run icons`: re-render the PNG icons in `public/` from `assets/*.svg`
 - `supabase start` / `supabase migration up --local`: local stack + apply new migrations. `supabase db reset` wipes local data.
 - `supabase test db`: pgTAP
 - `supabase db push`: apply migrations to the hosted project (confirm first)
@@ -150,12 +134,13 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 - UI changes: check in a desktop browser at phone width, and on the iPhone home-screen PWA when layout, safe areas, or storage are involved.
 - Manual smoke flow:
   1. Sign in with email + password inside the PWA.
-  2. Search "Wonderwall" and add it as Learning.
-  3. Set progress and links.
-  4. Log a session.
-  5. Mark it Learned.
-  6. Check that the stats update.
-  7. Force-quit, reopen, and confirm you're still signed in with the data intact.
+  2. Search "Wonderwall" (Add tab) and add it as Learning.
+  3. Add a link and a file, open both, and write a note.
+  4. On Home tap Start practice, open the song and a resource, return: the timer kept counting.
+  5. Tap Stop: the recap pre-ticks the song. Pick a feel and save.
+  6. Home shows today's bar, a lit 1-day streak, the week's minutes, the song under Top songs this week and the session under Recent sessions; the song sheet shows its practice totals. Tap the session: My Log opens with its details, and shows the all-time totals above the sessions.
+  7. Mark it Learned.
+  8. Force-quit during a session, reopen, and confirm it's still running and you're still signed in with the data intact.
 
 ## Out of scope (don't build unless asked)
 - Open sign-ups

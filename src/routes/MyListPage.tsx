@@ -2,7 +2,7 @@ import { ListMusic } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { ProfileButton } from '@/components/ProfileButton';
+import { AccountButton } from '@/components/AccountButton';
 import { SongRow } from '@/components/SongRow';
 import { selectionForEntry, SongSheet, type SongSelection } from '@/components/SongSheet';
 import { Button, Chip, Screen } from '@/components/ui';
@@ -21,7 +21,7 @@ export function MyListPage() {
   const count = (status: SongStatus) => entries.filter((entry) => entry.status === status).length;
 
   return (
-    <Screen title="My List" action={<ProfileButton />}>
+    <Screen title="My List" action={<AccountButton />}>
       {library.isPending ? (
         <p className="pt-16 text-center text-muted">Loading your list…</p>
       ) : library.isError ? (
@@ -33,7 +33,7 @@ export function MyListPage() {
         <div className="flex flex-col items-center gap-4 pt-16 text-center">
           <ListMusic className="size-10 text-brand" aria-hidden />
           <p className="text-muted">Songs you log show up here.</p>
-          <Button label="Log your first song" onClick={() => navigate('/log')} />
+          <Button label="Log your first song" onClick={() => navigate('/add')} />
         </div>
       ) : (
         <>

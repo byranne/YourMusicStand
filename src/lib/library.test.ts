@@ -27,12 +27,11 @@ function entry(
     tuning: null,
     capo: null,
     notes: null,
-    tab_url: null,
-    video_url: null,
     started_at: null,
     learned_at: null,
     created_at: '2026-09-30T00:00:00Z',
     updated_at: '2026-09-30T00:00:00Z',
+    resources: [],
     song: {
       id: `song-${id}`,
       mbid: options.mbid ?? null,

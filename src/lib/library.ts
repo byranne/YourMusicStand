@@ -5,7 +5,7 @@ import { normalizeForMatch, type MusicBrainzSong } from './musicbrainz';
 // shared links later) produces one of these and goes through useLogSong().
 export type SongCandidate = MusicBrainzSong | { source: 'custom'; title: string; artist: string };
 
-export type LibraryEntry = Tables<'user_songs'> & { song: Tables<'songs'> };
+export type LibraryEntry = Tables<'user_songs'> & { song: Tables<'songs'>; resources: Tables<'resources'>[] };
 
 export const statusLabels: Record<SongStatus, string> = {
   want_to_learn: 'Want to learn',

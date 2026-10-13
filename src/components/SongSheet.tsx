@@ -1,5 +1,4 @@
-import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { CoverArt, Sheet, TextField } from '@/components/ui';
 import type { SongStatus } from '@/lib/database.types';
@@ -10,11 +9,22 @@ import {
   type LibraryEntry,
   type SongCandidate,
 } from '@/lib/library';
-import { isPendingEntry, useLibrary, useLogSong, useRemoveEntry, useUpdateEntry } from '@/lib/queries';
+import {
+  isPendingEntry,
+  useLibrary,
+  useLogSong,
+  useRemoveEntry,
+  useSessions,
+  useUpdateEntry,
+} from '@/lib/queries';
+import { useActiveSession } from '@/lib/activeSession';
+import { formatMinutes } from '@/lib/practice';
 import { customSongSchema } from '@/lib/schemas/entry';
+import { relativeDay, songTotals } from '@/lib/stats';
 
-import { EntryDetailsForm } from './EntryDetailsForm';
 import { LogButton } from './LogButton';
+import { SongNotes } from './SongNotes';
+import { SongResources } from './SongResources';
 
 // What the sheet is showing: a library entry, a song that may not be logged
 // yet, or a custom song the user is still naming.
@@ -61,7 +71,7 @@ type SongSheetProps = {
 };
 
 // The song "mini page": everything known about a song, the Log button, and,
-// once it is logged, its optional details. Adding and editing are the same sheet.
+// once it is logged, its practice totals, resources and notes. Adding and editing are the same sheet.
 export function SongSheet({ selection, onSelect, onClose }: SongSheetProps) {
   const library = useLibrary();
   const logSong = useLogSong();
@@ -155,7 +165,6 @@ type SongBodyProps = {
 };
 
 function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   const catalog = candidate?.source === 'musicbrainz' ? candidate : null;
@@ -179,6 +188,14 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
   );
   const isSaved = entry !== undefined && !isPendingEntry(entry);
 
+  // Opening or adding a song while a session runs counts it as practiced.
+  const { session, touch } = useActiveSession();
+  const entryId = isSaved ? entry.id : null;
+  const sessionRunning = session !== null;
+  useEffect(() => {
+    if (entryId && sessionRunning) touch(entryId);
+  }, [entryId, sessionRunning, touch]);
+
   // The entry was removed (or never loaded); the sheet is on its way out.
   if (!entry && !candidate) return null;
 
@@ -201,24 +218,10 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
 
       {isSaved ? (
         <>
-          <div className="border-t border-border pt-2">
-            <button
-              type="button"
-              aria-expanded={detailsOpen}
-              onClick={() => setDetailsOpen(!detailsOpen)}
-              className="flex h-11 w-full items-center justify-between text-base font-medium text-text"
-            >
-              Details
-              <ChevronDown
-                className={`size-5 text-muted transition-transform ${detailsOpen ? 'rotate-180' : ''}`}
-                aria-hidden
-              />
-            </button>
-            {detailsOpen ? (
-              <div className="pt-2">
-                <EntryDetailsForm entry={entry} />
-              </div>
-            ) : null}
+          <div className="flex flex-col gap-5 border-t border-border pt-4">
+            <SongTotals entryId={entry.id} />
+            <SongResources entry={entry} />
+            <SongNotes entry={entry} />
           </div>
 
           <button
@@ -226,10 +229,27 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
             onClick={() => (confirmingRemove ? onRemove() : setConfirmingRemove(true))}
             className={`h-11 text-sm font-medium ${confirmingRemove ? 'text-danger' : 'text-muted'}`}
           >
-            {confirmingRemove ? 'Tap again to remove it and its details' : 'Remove from My List'}
+            {confirmingRemove ? 'Tap again to remove it with its resources and notes' : 'Remove from My List'}
           </button>
         </>
       ) : null}
+    </div>
+  );
+}
+
+// What practice has added up to for this song: sessions, time, and when last.
+function SongTotals({ entryId }: { entryId: string }) {
+  const sessions = useSessions();
+  const totals = songTotals(sessions.data ?? []).get(entryId);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">Practice</h3>
+      <p className="text-sm text-text">
+        {totals
+          ? `${totals.sessions} ${totals.sessions === 1 ? 'session' : 'sessions'} · ${formatMinutes(Math.round(totals.minutes))} · last ${relativeDay(totals.lastPlayed, new Date())}`
+          : 'Not practiced yet.'}
+      </p>
     </div>
   );
 }

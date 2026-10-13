@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(24);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as superuser, bypassing RLS)
@@ -28,9 +28,12 @@ insert into public.user_songs (id, user_id, song_id, status) values
   ('20000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a',
    '10000000-0000-0000-0000-000000000001', 'learning');
 
-insert into public.practice_sessions (id, user_id, user_song_id, duration_min) values
-  ('30000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a',
-   '20000000-0000-0000-0000-000000000001', 20);
+insert into public.practice_sessions (id, user_id, duration_sec) values
+  ('30000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 1200);
+
+insert into public.practice_session_songs (session_id, user_song_id, user_id) values
+  ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001',
+   '00000000-0000-0000-0000-00000000000a');
 
 -- ---------------------------------------------------------------------------
 -- Schema integrity
@@ -73,6 +76,7 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 
 select is((select count(*)::int from public.user_songs), 0, 'B cannot read A''s user_songs');
 select is((select count(*)::int from public.practice_sessions), 0, 'B cannot read A''s practice_sessions');
+select is((select count(*)::int from public.practice_session_songs), 0, 'B cannot read A''s practice_session_songs');
 
 select is(
   (select count(*)::int from public.songs where id = '10000000-0000-0000-0000-000000000001'),
@@ -93,14 +97,15 @@ select throws_ok(
   '42501', null, 'B cannot add A''s custom song to their library'
 );
 select throws_ok(
-  $$ insert into public.practice_sessions (user_song_id, duration_min) values
-     ('20000000-0000-0000-0000-000000000001', 10) $$,
-  '42501', null, 'B cannot log a session on A''s user_song'
+  $$ insert into public.practice_session_songs (session_id, user_song_id) values
+     ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001') $$,
+  '42501', null, 'B cannot attach a song to A''s session'
 );
 
 update public.user_songs set progress = 99 where id = '20000000-0000-0000-0000-000000000001';
 delete from public.user_songs where id = '20000000-0000-0000-0000-000000000001';
 delete from public.practice_sessions where id = '30000000-0000-0000-0000-000000000001';
+delete from public.practice_session_songs where session_id = '30000000-0000-0000-0000-000000000001';
 delete from public.songs where id = '10000000-0000-0000-0000-000000000002';
 
 select throws_ok(
@@ -129,6 +134,11 @@ select is(
 select is(
   (select count(*)::int from public.practice_sessions where id = '30000000-0000-0000-0000-000000000001'),
   1, 'B''s delete did not remove A''s practice_session'
+);
+select is(
+  (select count(*)::int from public.practice_session_songs
+   where session_id = '30000000-0000-0000-0000-000000000001'),
+  1, 'B''s delete did not remove A''s practice_session_songs'
 );
 select is(
   (select count(*)::int from public.songs where id = '10000000-0000-0000-0000-000000000002'),

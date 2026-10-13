@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 type ScreenProps = {
   title?: string;
-  // Shown opposite the title, e.g. the profile button.
+  // Shown opposite the title, e.g. the account button.
   action?: ReactNode;
   children?: ReactNode;
 };

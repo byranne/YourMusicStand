@@ -1,11 +1,12 @@
-// Hand-written to match supabase/migrations/ (0001_init … 0004_add_musicbrainz_song).
+// Hand-written to match supabase/migrations/ (0001_init, 0002_resources).
 // Once a project is linked, regenerate with: supabase gen types typescript --linked > src/lib/database.types.ts
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type SongSource = 'musicbrainz' | 'custom';
 export type SongStatus = 'want_to_learn' | 'learning' | 'learned' | 'shelved';
-export type PracticeFocus = 'riff' | 'solo' | 'rhythm' | 'full_song';
+export type PracticeFeel = 'rough' | 'okay' | 'great';
+export type ResourceKind = 'link' | 'file';
 
 export type Database = {
   public: {
@@ -84,8 +85,6 @@ export type Database = {
           tuning: string | null;
           capo: number | null;
           notes: string | null;
-          tab_url: string | null;
-          video_url: string | null;
           started_at: string | null;
           learned_at: string | null;
           created_at: string;
@@ -101,8 +100,6 @@ export type Database = {
           tuning?: string | null;
           capo?: number | null;
           notes?: string | null;
-          tab_url?: string | null;
-          video_url?: string | null;
           started_at?: string | null;
           learned_at?: string | null;
           created_at?: string;
@@ -118,8 +115,6 @@ export type Database = {
           tuning?: string | null;
           capo?: number | null;
           notes?: string | null;
-          tab_url?: string | null;
-          video_url?: string | null;
           started_at?: string | null;
           learned_at?: string | null;
           created_at?: string;
@@ -139,39 +134,109 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          user_song_id: string;
           practiced_at: string;
+          duration_sec: number;
+          // Generated from duration_sec: whole minutes, at least 1.
           duration_min: number;
-          focus: PracticeFocus | null;
+          feel: PracticeFeel | null;
           notes: string | null;
-          progress_after: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          practiced_at?: string;
+          duration_sec: number;
+          duration_min?: never;
+          feel?: PracticeFeel | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          practiced_at?: string;
+          duration_sec?: number;
+          duration_min?: never;
+          feel?: PracticeFeel | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_session_songs: {
+        Row: {
+          session_id: string;
+          user_song_id: string;
+          user_id: string;
+        };
+        Insert: {
+          session_id: string;
+          user_song_id: string;
+          user_id?: string;
+        };
+        Update: {
+          session_id?: string;
+          user_song_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'practice_session_songs_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'practice_sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'practice_session_songs_user_song_id_fkey';
+            columns: ['user_song_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_songs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      resources: {
+        Row: {
+          id: string;
+          user_id: string;
+          user_song_id: string;
+          kind: ResourceKind;
+          title: string;
+          url: string | null;
+          storage_path: string | null;
+          mime_type: string | null;
+          size_bytes: number | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id?: string;
           user_song_id: string;
-          practiced_at?: string;
-          duration_min: number;
-          focus?: PracticeFocus | null;
-          notes?: string | null;
-          progress_after?: number | null;
+          kind: ResourceKind;
+          title: string;
+          url?: string | null;
+          storage_path?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
           user_song_id?: string;
-          practiced_at?: string;
-          duration_min?: number;
-          focus?: PracticeFocus | null;
-          notes?: string | null;
-          progress_after?: number | null;
+          kind?: ResourceKind;
+          title?: string;
+          url?: string | null;
+          storage_path?: string | null;
+          mime_type?: string | null;
+          size_bytes?: number | null;
           created_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: 'practice_sessions_user_song_id_fkey';
+            foreignKeyName: 'resources_user_song_id_fkey';
             columns: ['user_song_id'];
             isOneToOne: false;
             referencedRelation: 'user_songs';
@@ -182,6 +247,15 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      log_practice_session: {
+        Args: {
+          p_practiced_at: string;
+          p_duration_sec: number;
+          p_feel: PracticeFeel | null;
+          p_user_song_ids: string[];
+        };
+        Returns: string;
+      };
       add_musicbrainz_song: {
         Args: {
           p_mbid: string;
@@ -197,7 +271,8 @@ export type Database = {
     Enums: {
       song_source: SongSource;
       song_status: SongStatus;
-      practice_focus: PracticeFocus;
+      practice_feel: PracticeFeel;
+      resource_kind: ResourceKind;
     };
     CompositeTypes: { [_ in never]: never };
   };
