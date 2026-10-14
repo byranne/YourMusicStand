@@ -12,7 +12,7 @@ export function TextField({ label, error, id, ...inputProps }: TextFieldProps) {
   const inputId = id ?? autoId;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       {label ? (
         <label htmlFor={inputId} className="text-sm font-medium text-muted">
           {label}
@@ -22,7 +22,7 @@ export function TextField({ label, error, id, ...inputProps }: TextFieldProps) {
         id={inputId}
         aria-invalid={!!error}
         className={[
-          'h-12 rounded-xl border bg-surface px-4 text-base text-text outline-none placeholder:text-muted',
+          'h-12 min-w-0 rounded-xl border bg-surface px-4 text-base text-text outline-none placeholder:text-muted',
           error ? 'border-danger' : 'border-border focus:border-brand',
         ].join(' ')}
         {...inputProps}

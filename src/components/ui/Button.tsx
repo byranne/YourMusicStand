@@ -3,8 +3,14 @@ import type { ComponentProps } from 'react';
 
 type ButtonProps = Omit<ComponentProps<'button'>, 'children' | 'className'> & {
   label: string;
-  variant?: 'primary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost';
   loading?: boolean;
+};
+
+const variantClasses = {
+  primary: 'bg-button font-semibold text-on-button',
+  secondary: 'border border-border bg-surface font-medium text-text',
+  ghost: 'bg-transparent font-medium text-muted',
 };
 
 export function Button({
@@ -16,7 +22,6 @@ export function Button({
   ...buttonProps
 }: ButtonProps) {
   const isDisabled = disabled || loading;
-  const isPrimary = variant === 'primary';
 
   return (
     <button
@@ -25,7 +30,7 @@ export function Button({
       aria-busy={loading}
       className={[
         'flex h-12 w-full items-center justify-center rounded-xl px-6 text-base transition-opacity active:opacity-80',
-        isPrimary ? 'bg-button font-semibold text-on-button' : 'bg-transparent font-medium text-muted',
+        variantClasses[variant],
         isDisabled ? 'opacity-50' : '',
       ].join(' ')}
       {...buttonProps}

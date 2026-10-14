@@ -42,6 +42,7 @@ describe.each(['light', 'dark'] as const)('%s palette', (mode) => {
     ['muted', 'surface'],
     ['on-button', 'button'],
     ['on-brand-soft', 'brand-soft'],
+    ['on-streak-soft', 'streak-soft'],
     ['danger', 'background'],
     ['danger', 'surface'],
     ['on-status-want', 'status-want'],
