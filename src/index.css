@@ -261,8 +261,9 @@
   }
 }
 
+/* Light unless tokens.css's data-theme="dark" block says otherwise. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 html,
@@ -276,4 +277,50 @@ body,
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+}
+
+/* Page backgrounds (Account sheet > Appearance). A fixed layer behind the page,
+   since iOS ignores background-attachment: fixed. Tokens only, and surfaces
+   stay opaque, so contrast is unchanged. Previews reuse the .bg-pattern-* classes. */
+html[data-bg] body,
+html[data-bg] #root {
+  background-color: transparent;
+}
+
+html[data-bg] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+html[data-bg='dots'] body::before,
+.bg-pattern-dots {
+  background-image: radial-gradient(var(--color-border) 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+
+/* Five-line staves, like a blank sheet of music. */
+html[data-bg='staff'] body::before,
+.bg-pattern-staff {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 9px,
+    var(--color-border) 9px 10px,
+    transparent 10px 19px,
+    var(--color-border) 19px 20px,
+    transparent 20px 29px,
+    var(--color-border) 29px 30px,
+    transparent 30px 39px,
+    var(--color-border) 39px 40px,
+    transparent 40px 49px,
+    var(--color-border) 49px 50px,
+    transparent 50px 90px
+  );
+}
+
+html[data-bg='wash'] body::before,
+.bg-pattern-wash {
+  background-image: linear-gradient(to bottom, var(--color-brand-soft), var(--color-background) 70%);
 }

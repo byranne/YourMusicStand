@@ -55,12 +55,12 @@ export function Mascot({
         <rect x="112" y="278" width="288" height="38" rx="19" className="fill-button" />
         {/* face */}
         {asleep ? (
-          <g fill="none" className="stroke-on-button" strokeWidth="9" strokeLinecap="round">
+          <g fill="none" className="stroke-face" strokeWidth="9" strokeLinecap="round">
             <path d="M198 204Q214 216 230 204" />
             <path d="M282 204Q298 216 314 204" />
           </g>
         ) : (
-          <g className={`fill-on-button ${part} ${loop('animate-blink')}`}>
+          <g className={`fill-face ${part} ${loop('animate-blink')}`}>
             <circle cx="214" cy="202" r="14" />
             <circle cx="298" cy="202" r="14" />
           </g>
@@ -69,7 +69,7 @@ export function Mascot({
           {grinning || talking ? (
             <path
               d="M232 222Q256 258 280 222Z"
-              className="fill-on-button stroke-on-button"
+              className="fill-face stroke-face"
               strokeWidth="8"
               strokeLinejoin="round"
             />
@@ -77,7 +77,7 @@ export function Mascot({
             <path
               d={asleep ? 'M244 232Q256 238 268 232' : 'M238 226Q256 244 274 226'}
               fill="none"
-              className="stroke-on-button"
+              className="stroke-face"
               strokeWidth="9"
               strokeLinecap="round"
             />

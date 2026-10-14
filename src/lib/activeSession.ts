@@ -97,6 +97,22 @@ export function useActiveSession() {
     if (key && !read(key)) write(key, startSession(new Date()));
   }, [key]);
 
+  // Starts a session with these songs ticked, or ticks them on the running one.
+  const startWith = useCallback(
+    (entryIds: readonly string[]) => {
+      if (!key) return;
+      const now = new Date();
+      const current = read(key);
+      write(
+        key,
+        current
+          ? entryIds.reduce((session, id) => touchSong(session, id, now), current)
+          : startSession(now, entryIds),
+      );
+    },
+    [key],
+  );
+
   const touch = useCallback((entryId: string) => update((current) => touchSong(current, entryId, new Date())), [update]);
 
   const seen = useCallback(() => update((current) => markSeen(current, new Date())), [update]);
@@ -109,5 +125,5 @@ export function useActiveSession() {
     if (key) write(key, null);
   }, [key]);
 
-  return { session, peek, start, touch, seen, pause, resume, discard };
+  return { session, peek, start, startWith, touch, seen, pause, resume, discard };
 }

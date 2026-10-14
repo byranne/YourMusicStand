@@ -19,9 +19,10 @@ export const feelLabels: Record<PracticeFeel, string> = { rough: 'Rough', okay: 
 export const MAX_SECONDS = 86_400; // matches the duration_sec check on practice_sessions
 const ABANDONED_AFTER_MS = 3 * 60 * 60 * 1000;
 
-export function startSession(now: Date): ActiveSession {
+// `touched` pre-ticks songs, e.g. when practice starts from a song or a jamlist.
+export function startSession(now: Date, touched: readonly string[] = []): ActiveSession {
   const iso = now.toISOString();
-  return { startedAt: iso, lastSeenAt: iso, touched: [] };
+  return { startedAt: iso, lastSeenAt: iso, touched: [...new Set(touched)] };
 }
 
 export function touchSong(session: ActiveSession, entryId: string, now: Date): ActiveSession {

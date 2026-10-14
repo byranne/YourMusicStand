@@ -35,6 +35,14 @@ describe('touchSong', () => {
   });
 });
 
+describe('startSession', () => {
+  it('can start with songs already ticked, once each', () => {
+    const session = startSession(t0, ['a', 'b', 'a']);
+    expect(session.touched).toEqual(['a', 'b']);
+    expect(session.startedAt).toBe(t0.toISOString());
+  });
+});
+
 describe('elapsedSeconds', () => {
   it('counts whole seconds, like the clock', () => {
     expect(elapsedSeconds(startSession(t0), after(34))).toBe(34 * 60);

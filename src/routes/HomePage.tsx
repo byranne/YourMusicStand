@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router';
 import { AccountButton } from '@/components/AccountButton';
 import { Equalizer } from '@/components/Equalizer';
 import { Mascot } from '@/components/Mascot';
+import { NoteBurst } from '@/components/NoteBurst';
 import { SessionCard } from '@/components/SessionCard';
 import { SessionRecap } from '@/components/SessionRecap';
 import { SMALL_LIBRARY, SongPicker } from '@/components/SongPicker';
@@ -16,13 +17,15 @@ import { useElapsed } from '@/components/useElapsed';
 import { useTypewriter } from '@/components/useTypewriter';
 import { Button, Chip, CoverArt, LoadError, Screen, Skeleton, stagger } from '@/components/ui';
 import { useActiveSession } from '@/lib/activeSession';
+import { firstName } from '@/lib/avatars';
 import { pickGreeting, type Greeting } from '@/lib/greeting';
 import { statusLabels, type LibraryEntry } from '@/lib/library';
 import { formatMinutes, type ActiveSession } from '@/lib/practice';
-import { useLibrary, useSessions } from '@/lib/queries';
+import { useLibrary, useProfile, useSessions, useSettings } from '@/lib/queries';
 import {
   brushUps,
   daysSinceLastSession,
+  goalProgress,
   jumpBackIn,
   lastPlayedSong,
   minutesToday,
@@ -69,6 +72,8 @@ type StartPanelProps = {
 function StartPanel({ onStart, selection, onSelect }: StartPanelProps) {
   const sessions = useSessions();
   const library = useLibrary();
+  const profile = useProfile();
+  const weeklyGoal = useSettings().data?.weeklyGoalMin ?? null;
   const [addingPast, setAddingPast] = useState(false);
   const now = new Date();
   const all = sessions.data ?? [];
@@ -101,6 +106,8 @@ function StartPanel({ onStart, selection, onSelect }: StartPanelProps) {
             todayMinutes: minutesToday(all, now),
             weekMinutes: week.thisWeek,
             lastWeekSoFar: week.lastWeekSoFar,
+            name: firstName(profile.data?.display_name),
+            weeklyGoal,
           },
           seed,
         );
@@ -141,7 +148,13 @@ function StartPanel({ onStart, selection, onSelect }: StartPanelProps) {
         <Welcome />
       ) : (
         <>
-          <WeekCard sessions={all} now={now} greeting={greeting} onPoke={() => setSeed((current) => current + 1)} />
+          <WeekCard
+            sessions={all}
+            now={now}
+            weeklyGoal={weeklyGoal}
+            greeting={greeting}
+            onPoke={() => setSeed((current) => current + 1)}
+          />
           <TopSongs entries={library.data ?? []} sessions={all} now={now} onSelect={onSelect} />
           <BrushUp entries={library.data ?? []} sessions={all} now={now} onSelect={onSelect} />
           <RecentSessions sessions={all} />
@@ -268,9 +281,15 @@ function MascotLine({ greeting, onPoke }: { greeting: Greeting; onPoke: () => vo
 }
 
 // This week at a glance: the streak, the time played against last week, and a bar per day.
-type WeekCardProps = { sessions: PracticeSession[]; now: Date; greeting: Greeting | null; onPoke: () => void };
+type WeekCardProps = {
+  sessions: PracticeSession[];
+  now: Date;
+  weeklyGoal: number | null;
+  greeting: Greeting | null;
+  onPoke: () => void;
+};
 
-function WeekCard({ sessions, now, greeting, onPoke }: WeekCardProps) {
+function WeekCard({ sessions, now, weeklyGoal, greeting, onPoke }: WeekCardProps) {
   const { count } = streakStatus(sessions, now);
   const lit = count > 0;
   const { thisWeek, lastWeekSoFar } = weekComparison(sessions, now);
@@ -307,6 +326,7 @@ function WeekCard({ sessions, now, greeting, onPoke }: WeekCardProps) {
           <span aria-hidden>{formatMinutes(shownMinutes)}</span>
         </p>
         {comparison ? <p className="text-sm text-muted">{comparison}</p> : null}
+        {weeklyGoal !== null ? <GoalBar weekMinutes={thisWeek} goal={weeklyGoal} /> : null}
       </div>
 
       <ul className="flex gap-2">
@@ -346,6 +366,34 @@ function WeekCard({ sessions, now, greeting, onPoke }: WeekCardProps) {
         ))}
       </ul>
     </section>
+  );
+}
+
+// Progress toward the weekly goal from the Account sheet. Bursts with notes
+// when the goal is met.
+function GoalBar({ weekMinutes, goal }: { weekMinutes: number; goal: number }) {
+  const { ratio, remaining, met } = goalProgress(weekMinutes, goal);
+
+  return (
+    <div className="mt-3 flex flex-col gap-1.5">
+      <div
+        role="progressbar"
+        aria-label="Weekly goal"
+        aria-valuemin={0}
+        aria-valuemax={goal}
+        aria-valuenow={Math.min(weekMinutes, goal)}
+        className="relative h-2 w-full rounded-full bg-border"
+      >
+        <span
+          style={{ width: `${Math.max(ratio * 100, ratio > 0 ? 4 : 0)}%` }}
+          className="absolute inset-y-0 left-0 rounded-full bg-brand transition-[width] duration-700"
+        />
+        {met ? <NoteBurst /> : null}
+      </div>
+      <p className="text-sm text-muted">
+        {met ? `Goal met: ${formatMinutes(goal)} this week` : `${formatMinutes(remaining)} to your ${formatMinutes(goal)} goal`}
+      </p>
+    </div>
   );
 }
 

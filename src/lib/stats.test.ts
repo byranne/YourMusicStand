@@ -8,6 +8,7 @@ import {
   currentStreak,
   dayLabel,
   daysPlayedThisWeek,
+  goalProgress,
   groupSessions,
   jumpBackIn,
   lastPlayedSong,
@@ -287,5 +288,20 @@ describe('crossedMilestone', () => {
   });
   it('ignores a streak that stays the same or drops', () => {
     expect(crossedMilestone({ sessions: 3, streak: 7 }, { sessions: 4, streak: 7 })).toBeNull();
+  });
+});
+
+describe('goalProgress', () => {
+  it('measures the week against the goal', () => {
+    expect(goalProgress(45, 120)).toEqual({ ratio: 0.375, remaining: 75, met: false });
+  });
+
+  it('caps at the goal once it is met', () => {
+    expect(goalProgress(150, 120)).toEqual({ ratio: 1, remaining: 0, met: true });
+    expect(goalProgress(120, 120).met).toBe(true);
+  });
+
+  it('starts empty', () => {
+    expect(goalProgress(0, 60)).toEqual({ ratio: 0, remaining: 60, met: false });
   });
 });

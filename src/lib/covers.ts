@@ -1,7 +1,9 @@
 // Uploaded covers for custom songs. A phone photo is shrunk to a small JPEG
 // before upload, so a cover costs tens of KB of the 50 MB allowance.
 
-// Longest side of a stored cover, in pixels. Covers show at most 112 CSS px wide.
+import type { Crop } from './crop';
+
+// Longest side of a stored cover, in pixels. Covers show at most 176 CSS px wide (the Cover Flow).
 export const COVER_MAX_PX = 600;
 const COVER_QUALITY = 0.85;
 
@@ -18,16 +20,23 @@ export function coverPathFor(userId: string, uniqueId: string): string {
 }
 
 // Any image the browser can decode (iOS hands over HEIC photos as JPEG) as a
-// small JPEG. Browser-only: it draws on a canvas.
-export async function shrinkCover(file: File): Promise<Blob> {
+// small JPEG, cut to `crop` first when the cropper picked one. Browser-only:
+// it draws on a canvas.
+export async function shrinkCover(
+  file: File,
+  { max = COVER_MAX_PX, crop }: { max?: number; crop?: Crop } = {},
+): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
-  const { width, height } = coverDimensions(bitmap.width, bitmap.height);
+  const source = crop
+    ? { x: crop.x, y: crop.y, width: crop.size, height: crop.size }
+    : { x: 0, y: 0, width: bitmap.width, height: bitmap.height };
+  const { width, height } = coverDimensions(source.width, source.height, max);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Could not read the image.');
-  context.drawImage(bitmap, 0, 0, width, height);
+  context.drawImage(bitmap, source.x, source.y, source.width, source.height, 0, 0, width, height);
   bitmap.close();
 
   return new Promise((resolve, reject) => {

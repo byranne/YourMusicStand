@@ -1,8 +1,9 @@
--- Uploaded covers on custom songs (songs.cover_path).
+-- Uploaded covers: the retired songs.cover_path on custom songs, and
+-- user_songs.cover_path on any library entry.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(11);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as superuser, bypassing RLS)
@@ -16,6 +17,9 @@ insert into public.songs (id, mbid, title, artist, source) values
 
 insert into public.songs (id, title, artist, source, created_by) values
   ('10000000-0000-0000-0000-000000000002', 'My Song', 'Me', 'custom', '00000000-0000-0000-0000-00000000000a');
+
+insert into public.user_songs (id, user_id, song_id) values
+  ('20000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001');
 
 -- ---------------------------------------------------------------------------
 -- Schema integrity
@@ -59,10 +63,46 @@ select is(
   0, 'B cannot see A''s custom song or its cover path'
 );
 
+update public.user_songs set cover_path = '00000000-0000-0000-0000-00000000000b/covers/b.jpg'
+  where id = '20000000-0000-0000-0000-000000000001';
+
 reset role;
 select is(
   (select cover_path from public.songs where id = '10000000-0000-0000-0000-000000000002'),
   '00000000-0000-0000-0000-00000000000a/covers/a.jpg', 'B''s update did not clear A''s cover'
+);
+
+-- ---------------------------------------------------------------------------
+-- Entry covers (user_songs.cover_path)
+-- ---------------------------------------------------------------------------
+select is(
+  (select cover_path from public.user_songs where id = '20000000-0000-0000-0000-000000000001'),
+  null, 'B cannot set a cover on A''s library entry'
+);
+select throws_ok(
+  $$ update public.user_songs set cover_path = '00000000-0000-0000-0000-00000000000b/covers/x.jpg'
+     where id = '20000000-0000-0000-0000-000000000001' $$,
+  '23514', null, 'an entry cover must sit in its owner''s folder'
+);
+select throws_ok(
+  $$ update public.user_songs set cover_path = '00000000-0000-0000-0000-00000000000a/other/x.jpg'
+     where id = '20000000-0000-0000-0000-000000000001' $$,
+  '23514', null, 'an entry cover must be under covers/'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+
+select lives_ok(
+  $$ update public.user_songs set cover_path = '00000000-0000-0000-0000-00000000000a/covers/w.jpg'
+     where id = '20000000-0000-0000-0000-000000000001' $$,
+  'A can set their own cover on a MusicBrainz song in their library'
+);
+
+reset role;
+select is(
+  (select cover_url from public.songs where id = '10000000-0000-0000-0000-000000000001'),
+  null, 'the shared catalog song is untouched'
 );
 
 select * from finish();

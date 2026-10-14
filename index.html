@@ -11,6 +11,21 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>MusicStand</title>
+    <script>
+      // Before the first paint: the saved theme override and page background
+      // (src/lib/theme.ts owns these keys and takes over once the app loads).
+      (function () {
+        var root = document.documentElement;
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        try {
+          var pref = localStorage.getItem('musicstand:theme');
+          if (pref === 'light' || pref === 'dark') dark = pref === 'dark';
+          var background = localStorage.getItem('musicstand:background');
+          if (background) root.dataset.bg = background;
+        } catch (error) {}
+        root.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

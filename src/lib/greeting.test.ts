@@ -19,6 +19,8 @@ const base: GreetingContext = {
   todayMinutes: 25,
   weekMinutes: 90,
   lastWeekSoFar: 60,
+  name: null,
+  weeklyGoal: null,
 };
 
 const withContext = (patch: Partial<GreetingContext>): GreetingContext => ({ ...base, ...patch });
@@ -115,5 +117,25 @@ describe('pickGreeting', () => {
   it('is sleepy after a gap and celebrating on a long streak', () => {
     expect(pickGreeting(withContext({ daysSinceLast: 5 }), 0).mood).toBe('sleepy');
     expect(pickGreeting(withContext({ streak: { count: 8, playedToday: true } }), 0).mood).toBe('celebrate');
+  });
+});
+
+describe('personal lines', () => {
+  const linesFor = (context: GreetingContext, bucket: GreetingBucket) =>
+    Array.from({ length: greetingVariantCounts[bucket] }, (_, seed) => pickGreeting(context, seed).text);
+
+  it('greets by name only when there is one', () => {
+    expect(linesFor(withContext({ hour: 9, name: 'Bryan' }), 'morning').some((line) => line.includes('Bryan'))).toBe(true);
+    expect(linesFor(withContext({ hour: 9 }), 'morning').join(' ')).not.toContain('null');
+  });
+
+  it('mentions the minutes left to a weekly goal', () => {
+    const lines = linesFor(withContext({ weeklyGoal: 120, weekMinutes: 90 }), 'day');
+    expect(lines.some((line) => line.includes('30 min to go'))).toBe(true);
+  });
+
+  it('drops goal lines without a goal or once it is met', () => {
+    expect(linesFor(withContext({ weeklyGoal: null }), 'day').join(' ')).not.toContain('goal');
+    expect(linesFor(withContext({ weeklyGoal: 60, weekMinutes: 90 }), 'day').join(' ')).not.toContain('goal');
   });
 });

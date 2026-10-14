@@ -1,6 +1,8 @@
 /* Design tokens as Tailwind theme variables (bg-brand, text-muted, …).
-   Light values live in @theme; dark values override them when the system is in
-   dark mode. Keep in sync with colors.ts (colors.test.ts checks this). */
+   Light values live in @theme; dark values override them under
+   data-theme="dark" on <html>. src/lib/theme.ts sets that attribute from the
+   system setting or the person's override (and index.html does it before the
+   first paint). Keep in sync with colors.ts (colors.test.ts checks this). */
 @theme {
   --color-background: #f6f8f8;
   --color-surface: #ffffff;
@@ -14,6 +16,7 @@
   --color-on-button: #ffffff;
   --color-danger: #c2343f;
   --color-scrim: #142221;
+  --color-face: #142221;
   --color-blush: #ffb4a8;
   --color-streak: #e8590c;
   --color-streak-core: #ffb547;
@@ -29,32 +32,32 @@
   --color-on-status-shelved: #5b6b6a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #101615;
-    --color-surface: #1a2221;
-    --color-border: #2a3433;
-    --color-text: #eaf1f0;
-    --color-muted: #9aaaa8;
-    --color-brand: #3cc4be;
-    --color-brand-soft: #133a38;
-    --color-on-brand-soft: #7ee0da;
-    --color-button: #3cc4be;
-    --color-on-button: #08302e;
-    --color-danger: #ff7a85;
-    --color-scrim: #000000;
-    --color-blush: #ff8a7a;
-    --color-streak: #ff8a4c;
-    --color-streak-core: #ffd08a;
-    --color-streak-soft: #3d2414;
-    --color-on-streak-soft: #ffb58a;
-    --color-status-want: #3a2e12;
-    --color-on-status-want: #f5c46a;
-    --color-status-learning: #133a38;
-    --color-on-status-learning: #7ee0da;
-    --color-status-learned: #222a45;
-    --color-on-status-learned: #a9b4f0;
-    --color-status-shelved: #242d2c;
-    --color-on-status-shelved: #9aaaa8;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-background: #101615;
+  --color-surface: #1a2221;
+  --color-border: #2a3433;
+  --color-text: #eaf1f0;
+  --color-muted: #9aaaa8;
+  --color-brand: #3cc4be;
+  --color-brand-soft: #133a38;
+  --color-on-brand-soft: #7ee0da;
+  --color-button: #3cc4be;
+  --color-on-button: #08302e;
+  --color-danger: #ff7a85;
+  --color-scrim: #000000;
+  --color-face: #08302e;
+  --color-blush: #ff8a7a;
+  --color-streak: #ff8a4c;
+  --color-streak-core: #ffd08a;
+  --color-streak-soft: #3d2414;
+  --color-on-streak-soft: #ffb58a;
+  --color-status-want: #3a2e12;
+  --color-on-status-want: #f5c46a;
+  --color-status-learning: #133a38;
+  --color-on-status-learning: #7ee0da;
+  --color-status-learned: #222a45;
+  --color-on-status-learned: #a9b4f0;
+  --color-status-shelved: #242d2c;
+  --color-on-status-shelved: #9aaaa8;
 }

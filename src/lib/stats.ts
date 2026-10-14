@@ -49,6 +49,18 @@ export function weekComparison(sessions: SessionTime[], now: Date): { thisWeek: 
   return { thisWeek: minutesThisWeek(sessions, now), lastWeekSoFar };
 }
 
+export type GoalProgress = { ratio: number; remaining: number; met: boolean };
+
+// How far this week's minutes are toward a weekly goal. ratio is capped at 1.
+export function goalProgress(weekMinutes: number, goalMinutes: number): GoalProgress {
+  const goal = Math.max(1, goalMinutes);
+  return {
+    ratio: Math.min(1, weekMinutes / goal),
+    remaining: Math.max(0, goal - weekMinutes),
+    met: weekMinutes >= goal,
+  };
+}
+
 export function daysPlayedThisWeek(sessions: SessionTime[], now: Date): number {
   return weekDays(sessions, now).filter((day) => day.minutes > 0).length;
 }

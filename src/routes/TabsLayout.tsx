@@ -1,6 +1,8 @@
 import { House, ListMusic, NotebookPen, Plus, type LucideIcon } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
+import { AppearanceSync } from '@/components/AppearanceSync';
+import { CoverPreloader } from '@/components/CoverPreloader';
 import { MascotToast } from '@/components/MascotToast';
 import { SessionBar } from '@/components/SessionBar';
 import { SessionWatcher } from '@/components/SessionWatcher';
@@ -34,6 +36,8 @@ export function TabsLayout() {
         </div>
       </main>
       <SessionWatcher />
+      <AppearanceSync />
+      <CoverPreloader />
       <MascotToast />
       {showSessionBar ? <SessionBar session={session} /> : null}
       <nav className="fixed inset-x-4 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto max-w-md rounded-3xl border border-border bg-surface shadow-lg">

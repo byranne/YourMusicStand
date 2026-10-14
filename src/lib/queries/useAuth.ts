@@ -1,6 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 
+import { forgetCovers } from '../coverImages';
 import { supabase } from '../supabase';
+import { applyBackground } from '../theme';
+import { forgetCoverUrls } from './resourceFiles';
 
 // The captcha token is only there when the build has a Turnstile site key;
 // the hosted project requires it, the local stack doesn't.
@@ -43,6 +46,13 @@ export function useSignOut() {
     mutationFn: async () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+    },
+    // The page background, the signed cover links and the kept covers belong
+    // to the account, so the next one starts plain and fills its own.
+    onSuccess: () => {
+      applyBackground('plain');
+      forgetCoverUrls();
+      void forgetCovers();
     },
   });
 }

@@ -17,6 +17,10 @@ export type GreetingContext = {
   todayMinutes: number;
   weekMinutes: number;
   lastWeekSoFar: number;
+  // The first word of the display name, if one is set.
+  name: string | null;
+  // The weekly practice goal in minutes, if one is set.
+  weeklyGoal: number | null;
 };
 
 export type Greeting = { text: string; mood: MascotMood };
@@ -24,10 +28,16 @@ export type Greeting = { text: string; mood: MascotMood };
 // Null when the line needs data this person doesn't have yet.
 type Variant = (context: GreetingContext) => string | null;
 
+// Minutes left to this week's goal, or null without a goal or once it is met.
+function toGoal({ weeklyGoal, weekMinutes }: GreetingContext): number | null {
+  return weeklyGoal !== null && weekMinutes < weeklyGoal ? weeklyGoal - weekMinutes : null;
+}
+
 const buckets = {
   first: {
     mood: 'happy',
     variants: [
+      ({ name }) => (name ? `Hi ${name}! Let's tackle it together.` : null),
       () => "Hi! Let's tackle it together.",
       () => 'Ready when you are. First session?',
       () => "Let's make some noise.",
@@ -54,6 +64,9 @@ const buckets = {
       ({ lastSong }) => (lastSong?.daysAgo === 0 ? `Nice work on ${lastSong.title}. Encore?` : null),
       ({ streak }) => (streak.count > 1 ? `Day ${streak.count} done. Encore?` : null),
       () => 'Nice work today. Encore?',
+      ({ name }) => (name ? `Nice work today, ${name}.` : null),
+      ({ weeklyGoal, weekMinutes }) =>
+        weeklyGoal !== null && weekMinutes >= weeklyGoal ? 'Weekly goal done. Everything now is a bonus!' : null,
       () => "That's today done. Proud of you.",
       () => 'Fingers warm? One more song?',
     ],
@@ -66,6 +79,10 @@ const buckets = {
         lastSong ? `Pick ${lastSong.title} back up to keep your ${streak.count}-day streak.` : null,
       ({ songTitle }) => (songTitle ? `${songTitle} is up next. Let's go!` : null),
       () => "Let's keep it going.",
+      (context) => {
+        const left = toGoal(context);
+        return left !== null ? `${formatMinutes(left)} to your weekly goal. Let's chip away.` : null;
+      },
       () => 'Quick 10 minutes? We got this.',
       () => "Five minutes still counts. Let's play!",
     ],
@@ -88,6 +105,7 @@ const buckets = {
     variants: [
       ({ topSongTitle }) => (topSongTitle ? `Morning! ${topSongTitle} is your top song this week.` : null),
       () => 'Good morning! Warm up with me?',
+      ({ name }) => (name ? `Morning, ${name}! Warm up with me?` : null),
       () => "Morning! Let's tackle today together.",
     ],
   },
@@ -96,6 +114,7 @@ const buckets = {
     variants: [
       ({ topSongTitle }) => (topSongTitle ? `Wind down with ${topSongTitle}?` : null),
       () => 'Evening jam? I like it.',
+      ({ name }) => (name ? `Evening, ${name}. Jam session?` : null),
       () => 'Wind down with a song?',
     ],
   },
@@ -104,6 +123,11 @@ const buckets = {
     variants: [
       ({ topSongTitle }) => (topSongTitle ? `${topSongTitle} is your top song this week. Back at it?` : null),
       () => "What's on the stand today?",
+      ({ name }) => (name ? `Hey ${name}, what's on the stand today?` : null),
+      (context) => {
+        const left = toGoal(context);
+        return left !== null ? `${formatMinutes(left)} to go on this week's goal.` : null;
+      },
       () => "Let's tackle it together.",
       () => 'Pick a song, any song.',
       () => 'Your guitar is calling.',

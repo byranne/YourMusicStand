@@ -22,3 +22,4 @@ describe('coverPathFor', () => {
     expect(coverPathFor('user-1', 'abc')).toBe('user-1/covers/abc.jpg');
   });
 });
+

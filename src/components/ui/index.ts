@@ -1,3 +1,4 @@
+export { Avatar } from './Avatar';
 export { Button } from './Button';
 export { Chip, statusColors } from './Chip';
 export { CoverArt } from './CoverArt';

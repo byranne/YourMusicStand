@@ -7,3 +7,20 @@ export { useAddFile, useAddLink, useRemoveResource, useResourceUrls } from './us
 export { useSongSearch } from './useSongSearch';
 export { useDeleteSession, useSaveSession, useSessions } from './usePractice';
 export type { SaveSessionInput } from './usePractice';
+export {
+  DEFAULT_SETTINGS,
+  useProfile,
+  useSetAvatarPhoto,
+  useSettings,
+  useUpdateProfile,
+  useUpdateSettings,
+} from './useProfile';
+export type { Profile, ProfilePatch, Settings } from './useProfile';
+export {
+  useCreateJamlist,
+  useDeleteJamlist,
+  useJamlists,
+  useRenameJamlist,
+  useSetJamlistCover,
+  useSetJamlistSongs,
+} from './useJamlists';

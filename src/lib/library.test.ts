@@ -29,6 +29,7 @@ function entry(
     notes: null,
     started_at: null,
     learned_at: null,
+    cover_path: null,
     created_at: '2026-09-30T00:00:00Z',
     updated_at: '2026-09-30T00:00:00Z',
     resources: [],
