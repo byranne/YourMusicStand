@@ -14,7 +14,9 @@
   --color-on-button: #ffffff;
   --color-danger: #c2343f;
   --color-scrim: #142221;
+  --color-blush: #ffb4a8;
   --color-streak: #e8590c;
+  --color-streak-core: #ffb547;
   --color-streak-soft: #ffe8d9;
   --color-on-streak-soft: #8a3a00;
   --color-status-want: #fff0d6;
@@ -41,7 +43,9 @@
     --color-on-button: #08302e;
     --color-danger: #ff7a85;
     --color-scrim: #000000;
+    --color-blush: #ff8a7a;
     --color-streak: #ff8a4c;
+    --color-streak-core: #ffd08a;
     --color-streak-soft: #3d2414;
     --color-on-streak-soft: #ffb58a;
     --color-status-want: #3a2e12;

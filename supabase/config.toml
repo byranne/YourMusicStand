@@ -5,13 +5,17 @@ major_version = 17
 
 [auth]
 site_url = "http://localhost:5173"
-# Invite-only: accounts are created from the dashboard (Auth → Add/Invite user).
-# The hosted project needs the same: turn off "Allow new users to sign up".
-enable_signup = false
+# Anyone can make an account with an email and a password. The hosted project
+# needs the same: "Allow new users to sign up" on, "Confirm email" off, and
+# Turnstile captcha on (left off here so local sign-in needs no site key).
+enable_signup = true
+minimum_password_length = 8
 enable_anonymous_sign_ins = false
 
 [auth.email]
-# This is the email *provider* switch; leave it on. [auth] enable_signup blocks new users.
+# This is the email *provider* switch; leave it on.
 enable_signup = true
+# Nothing is emailed: a new account is signed in straight away.
+enable_confirmations = false
 otp_length = 6
 otp_expiry = 3600

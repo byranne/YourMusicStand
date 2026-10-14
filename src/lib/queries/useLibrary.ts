@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { SongStatus, Tables } from '../database.types';
+import { coverPathFor, shrinkCover } from '../covers';
 import { defaultsForStatus, type LibraryEntry, type SongCandidate } from '../library';
 import { supabase } from '../supabase';
-import { removeResourceFiles } from './resourceFiles';
+import { removeResourceFiles, signCovers, uploadCover } from './resourceFiles';
 import { useSession } from './useSession';
 
 const ENTRY_SELECT = '*, song:songs(*), resources(*)';
@@ -12,6 +13,19 @@ const PENDING_PREFIX = 'pending-';
 export const libraryKey = (userId: string | undefined) => ['library', userId] as const;
 
 export type EntryPatch = Partial<Pick<Tables<'user_songs'>, 'status' | 'progress' | 'notes'>>;
+
+// A custom song's uploaded cover is shown through cover_url, filled in here with
+// a signed URL for its cover_path. It is display-only and never written back.
+async function withCovers(entries: LibraryEntry[]): Promise<LibraryEntry[]> {
+  const paths = entries.flatMap((entry) => (entry.song.cover_path ? [entry.song.cover_path] : []));
+  if (paths.length === 0) return entries;
+  // A cover that can't be signed shows the placeholder rather than failing the library.
+  const urls = await signCovers(paths).catch(() => ({}) as Record<string, string>);
+  return entries.map((entry) => {
+    const url = entry.song.cover_path ? urls[entry.song.cover_path] : undefined;
+    return url ? { ...entry, song: { ...entry.song, cover_url: url } } : entry;
+  });
+}
 
 // An entry that was added optimistically and has no row id yet, so it can't be edited.
 export function isPendingEntry(entry: LibraryEntry): boolean {
@@ -33,7 +47,7 @@ export function useLibrary() {
         .select(ENTRY_SELECT)
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return withCovers(data);
     },
   });
 }
@@ -92,6 +106,7 @@ function pendingEntry(candidate: SongCandidate, status: SongStatus, userId: stri
       artist: candidate.artist,
       album: catalog?.album ?? null,
       cover_url: catalog?.coverUrl ?? null,
+      cover_path: null,
       duration_ms: catalog?.durationMs ?? null,
       source: candidate.source,
       created_by: catalog ? null : userId,
@@ -122,7 +137,8 @@ export function useLogSong() {
         .select(ENTRY_SELECT)
         .single();
       if (error) throw error;
-      return data satisfies LibraryEntry;
+      const [entry] = await withCovers([data satisfies LibraryEntry]);
+      return entry;
     },
     onMutate: async ({ candidate, status }) => {
       if (!userId) return undefined;
@@ -165,7 +181,8 @@ export function useUpdateEntry() {
         .select(ENTRY_SELECT)
         .single();
       if (error) throw error;
-      return data satisfies LibraryEntry;
+      const [entry] = await withCovers([data satisfies LibraryEntry]);
+      return entry;
     },
     onMutate: async ({ id, patch }) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -178,6 +195,31 @@ export function useUpdateEntry() {
       const previous = context?.previous;
       if (previous) replace(id, () => previous);
     },
+  });
+}
+
+// Uploads a picture as a custom song's cover, replacing any earlier one.
+export function useSetCover() {
+  const queryClient = useQueryClient();
+  const { session } = useSession();
+  const userId = session?.user.id;
+
+  return useMutation({
+    mutationFn: async ({ song, file }: { song: LibraryEntry['song']; file: File }) => {
+      if (!userId) throw new Error('You are signed out. Sign in and try again.');
+      const image = await shrinkCover(file);
+      // Not crypto.randomUUID(): that needs HTTPS, and the dev server is plain HTTP on the LAN.
+      const path = coverPathFor(userId, `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      await uploadCover(path, image);
+
+      const { error } = await supabase.from('songs').update({ cover_path: path }).eq('id', song.id);
+      if (error) {
+        await removeResourceFiles([{ storage_path: path }]);
+        throw error;
+      }
+      if (song.cover_path) await removeResourceFiles([{ storage_path: song.cover_path }]);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: libraryKey(userId) }),
   });
 }
 

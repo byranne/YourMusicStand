@@ -43,6 +43,7 @@ export type Database = {
           artist: string;
           album: string | null;
           cover_url: string | null;
+          cover_path: string | null;
           duration_ms: number | null;
           source: SongSource;
           created_by: string | null;
@@ -55,6 +56,7 @@ export type Database = {
           artist: string;
           album?: string | null;
           cover_url?: string | null;
+          cover_path?: string | null;
           duration_ms?: number | null;
           source: SongSource;
           created_by?: string | null;
@@ -67,6 +69,7 @@ export type Database = {
           artist?: string;
           album?: string | null;
           cover_url?: string | null;
+          cover_path?: string | null;
           duration_ms?: number | null;
           source?: SongSource;
           created_by?: string | null;

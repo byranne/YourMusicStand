@@ -1,7 +1,7 @@
 export { queryClient } from './client';
 export { AuthProvider, useSession } from './useSession';
-export { useSignIn, useSignOut } from './useAuth';
-export { isPendingEntry, useLibrary, useLogSong, useRemoveEntry, useUpdateEntry } from './useLibrary';
+export { useChangePassword, useSignIn, useSignOut, useSignUp } from './useAuth';
+export { isPendingEntry, useLibrary, useLogSong, useRemoveEntry, useSetCover, useUpdateEntry } from './useLibrary';
 export type { EntryPatch } from './useLibrary';
 export { useAddFile, useAddLink, useRemoveResource, useResourceUrls } from './useResources';
 export { useSongSearch } from './useSongSearch';

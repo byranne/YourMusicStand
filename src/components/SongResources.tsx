@@ -5,13 +5,15 @@ import { useForm } from 'react-hook-form';
 
 import { Button, TextField } from '@/components/ui';
 import type { LibraryEntry } from '@/lib/library';
-import { useAddFile, useAddLink, useRemoveResource, useResourceUrls } from '@/lib/queries';
+import { useAddFile, useAddLink, useLibrary, useRemoveResource, useResourceUrls } from '@/lib/queries';
 import {
   formatFileSize,
   linkTitle,
   MAX_FILE_BYTES,
+  MAX_TOTAL_FILE_BYTES,
   normalizeLink,
   sortResources,
+  usedFileBytes,
   type Resource,
 } from '@/lib/resources';
 import { resourceLinkSchema, type ResourceLink } from '@/lib/schemas/entry';
@@ -23,6 +25,8 @@ export function SongResources({ entry }: { entry: LibraryEntry }) {
   const addFile = useAddFile();
   const removeResource = useRemoveResource();
   const urls = useResourceUrls(entry);
+  // The upload allowance covers every song's files, not just this one's.
+  const usedBytes = usedFileBytes(useLibrary().data ?? []);
 
   const [addingLink, setAddingLink] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -39,6 +43,12 @@ export function SongResources({ entry }: { entry: LibraryEntry }) {
       setFileError(`That file is ${formatFileSize(file.size)}. The limit is ${formatFileSize(MAX_FILE_BYTES)}.`);
       return;
     }
+    if (usedBytes + file.size > MAX_TOTAL_FILE_BYTES) {
+      setFileError(
+        `You've used ${formatFileSize(usedBytes)} of ${formatFileSize(MAX_TOTAL_FILE_BYTES)}, and that file is ${formatFileSize(file.size)}. Remove a file to make room, or add it as a link.`,
+      );
+      return;
+    }
     setFileError(null);
     addFile.mutate({ entryId: entry.id, file });
   };
@@ -48,7 +58,7 @@ export function SongResources({ entry }: { entry: LibraryEntry }) {
       <h3 className="text-sm font-medium text-muted">Resources</h3>
 
       {resources.length === 0 && !uploading ? (
-        <p className="text-sm text-muted">Tabs, videos, PDFs: keep them here.</p>
+        <p className="text-sm text-muted">Keep tabs and PDFs here as files, and videos as links.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {resources.map((resource) => (

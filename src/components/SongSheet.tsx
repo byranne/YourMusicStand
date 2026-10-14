@@ -1,3 +1,4 @@
+import { Camera } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { CoverArt, Sheet, TextField } from '@/components/ui';
@@ -15,9 +16,11 @@ import {
   useLogSong,
   useRemoveEntry,
   useSessions,
+  useSetCover,
   useUpdateEntry,
 } from '@/lib/queries';
 import { useActiveSession } from '@/lib/activeSession';
+import { react } from '@/lib/mascotEvents';
 import { formatMinutes } from '@/lib/practice';
 import { customSongSchema } from '@/lib/schemas/entry';
 import { relativeDay, songTotals } from '@/lib/stats';
@@ -91,11 +94,14 @@ export function SongSheet({ selection, onSelect, onClose }: SongSheetProps) {
 
   const log = (candidate: SongCandidate, status: SongStatus) => {
     setFailed(false);
-    logSong.mutate({ candidate, status }, { onError });
+    logSong.mutate({ candidate, status }, { onError, onSuccess: () => react('songAdded') });
   };
   const setStatus = (entry: LibraryEntry, status: SongStatus) => {
     setFailed(false);
-    updateEntry.mutate({ id: entry.id, patch: { status, ...defaultsForStatus(status) } }, { onError });
+    updateEntry.mutate(
+      { id: entry.id, patch: { status, ...defaultsForStatus(status) } },
+      { onError, onSuccess: () => status === 'learned' && react('songLearned') },
+    );
   };
 
   let body = null;
@@ -166,6 +172,7 @@ type SongBodyProps = {
 
 function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const setCover = useSetCover();
 
   const catalog = candidate?.source === 'musicbrainz' ? candidate : null;
   const song = entry
@@ -202,13 +209,43 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-4">
-        <CoverArt url={song.coverUrl} size="lg" />
+        {isSaved && entry.song.source === 'custom' ? (
+          // Custom songs have no catalog art, so the user can pick their own.
+          <label
+            aria-busy={setCover.isPending}
+            className={`relative shrink-0 cursor-pointer active:opacity-80 ${setCover.isPending ? 'opacity-60' : ''}`}
+          >
+            <CoverArt url={song.coverUrl} size="lg" />
+            <span className="absolute right-1.5 bottom-1.5 flex size-8 items-center justify-center rounded-full border border-border bg-surface text-text">
+              <Camera className="size-4" aria-hidden />
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              aria-label={song.coverUrl ? 'Change cover image' : 'Add a cover image'}
+              disabled={setCover.isPending}
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // Cleared so picking the same photo again still fires a change.
+                event.target.value = '';
+                if (file) setCover.mutate({ song: entry.song, file });
+              }}
+            />
+          </label>
+        ) : (
+          <CoverArt url={song.coverUrl} size="lg" />
+        )}
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="text-xl leading-tight font-bold text-text">{song.title}</h2>
           <p className="text-base text-muted">{song.artist}</p>
           {facts.length > 0 ? <p className="text-sm text-muted">{facts.join(' · ')}</p> : null}
         </div>
       </div>
+
+      {setCover.isError ? (
+        <p className="text-sm text-danger">Couldn't save the cover. Check your connection and try again.</p>
+      ) : null}
 
       <LogButton
         status={entry?.status ?? null}

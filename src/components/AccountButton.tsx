@@ -1,10 +1,12 @@
 import { User } from 'lucide-react';
 import { useState } from 'react';
 
+import { ChangePassword } from '@/components/ChangePassword';
 import { Button, Sheet } from '@/components/ui';
 import { useSession, useSignOut } from '@/lib/queries';
 
-// The header button on every tab: opens a sheet with who is signed in and the way to sign out.
+// The header button on every tab: opens a sheet with who is signed in, a way to
+// change the password and the way to sign out.
 export function AccountButton() {
   const [open, setOpen] = useState(false);
   const { session } = useSession();
@@ -26,6 +28,7 @@ export function AccountButton() {
           <p className="text-sm text-muted">
             Signed in as <span className="text-text">{session?.user.email}</span>
           </p>
+          <ChangePassword />
           {signOut.error ? <p className="text-sm text-danger">{signOut.error.message}</p> : null}
           <Button
             label="Sign out"

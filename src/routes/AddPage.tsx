@@ -61,9 +61,10 @@ export function AddPage() {
 
         {libraryMatches.size > 0 ? (
           <Section title="In your list">
-            {[...libraryMatches.values()].map((entry) => (
+            {[...libraryMatches.values()].map((entry, index) => (
               <SongRow
                 key={entry.id}
+                index={index}
                 title={entry.song.title}
                 artist={entry.song.artist}
                 coverUrl={entry.song.cover_url}
@@ -76,9 +77,10 @@ export function AddPage() {
 
         {catalogSongs.length > 0 ? (
           <Section title="Songs">
-            {catalogSongs.map((song) => (
+            {catalogSongs.map((song, index) => (
               <SongRow
                 key={song.mbid}
+                index={index}
                 title={song.title}
                 artist={song.artist}
                 coverUrl={song.coverUrl}

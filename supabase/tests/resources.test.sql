@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(21);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (as superuser, bypassing RLS)
@@ -29,8 +29,10 @@ insert into public.resources (id, user_id, user_song_id, kind, title, storage_pa
    '20000000-0000-0000-0000-000000000001', 'file', 'solo.pdf',
    '00000000-0000-0000-0000-00000000000a/20000000-0000-0000-0000-000000000001/solo.pdf');
 
-insert into storage.objects (bucket_id, name) values
-  ('resources', '00000000-0000-0000-0000-00000000000a/20000000-0000-0000-0000-000000000001/solo.pdf');
+-- A's one file fills the whole 50 MB allowance.
+insert into storage.objects (bucket_id, name, metadata) values
+  ('resources', '00000000-0000-0000-0000-00000000000a/20000000-0000-0000-0000-000000000001/solo.pdf',
+   '{"size": 52428800}');
 
 -- ---------------------------------------------------------------------------
 -- Schema integrity
@@ -107,13 +109,46 @@ select lives_ok(
 select lives_ok(
   $$ insert into storage.objects (bucket_id, name) values
      ('resources', '00000000-0000-0000-0000-00000000000b/20000000-0000-0000-0000-000000000002/mine.pdf') $$,
-  'B can upload into their own folder'
+  'B can upload into their own folder: A''s usage does not count against B'
 );
 
 -- Silently match zero rows: A's row is invisible, and nobody may update.
 delete from public.resources where id = '40000000-0000-0000-0000-000000000001';
 update public.resources set title = 'Renamed' where id = '40000000-0000-0000-0000-000000000003';
 
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- As user A: the upload allowance
+-- ---------------------------------------------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+
+select is(public.resource_bytes_used(), 52428800::bigint, 'A''s stored bytes are counted');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values
+     ('resources', '00000000-0000-0000-0000-00000000000a/20000000-0000-0000-0000-000000000001/more.pdf') $$,
+  '42501', null, 'A cannot upload once the allowance is used up'
+);
+
+reset role;
+update storage.objects set metadata = '{"size": 52428799}'
+  where name = '00000000-0000-0000-0000-00000000000a/20000000-0000-0000-0000-000000000001/solo.pdf';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a","role":"authenticated"}', true);
+
+select lives_ok(
+  $$ insert into storage.objects (bucket_id, name) values
+     ('resources', '00000000-0000-0000-0000-00000000000a/20000000-0000-0000-0000-000000000001/more.pdf') $$,
+  'A can upload while under the allowance'
+);
+
+reset role;
+
+select throws_ok(
+  $$ set local role anon; select public.resource_bytes_used() $$,
+  '42501', null, 'anon cannot call resource_bytes_used()'
+);
 reset role;
 
 select is(

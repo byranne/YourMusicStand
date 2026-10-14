@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 
-import { Chip, CoverArt } from '@/components/ui';
+import { Chip, CoverArt, stagger } from '@/components/ui';
 import type { LibraryEntry } from '@/lib/library';
 import { feelLabels, formatSeconds } from '@/lib/practice';
 import { useLibrary } from '@/lib/queries';
@@ -20,6 +20,8 @@ export function sessionTime(session: PracticeSession): string {
 
 type SessionCardProps = {
   session: PracticeSession;
+  // Position in its list, so cards cascade in one after another.
+  index?: number;
 } & ({ to: string } | { onClick: () => void });
 
 // One row of practice history: when, how long, how it felt and what was played.
@@ -28,7 +30,8 @@ export function SessionCard(props: SessionCardProps) {
   const library = useLibrary();
   const entries = sessionEntries(session, library.data ?? []);
   const className =
-    'flex w-full flex-col gap-2 rounded-2xl border border-border bg-surface p-3 text-left active:opacity-80';
+    'flex w-full animate-rise flex-col gap-2 rounded-2xl border border-border bg-surface p-3 text-left transition-transform active:scale-[0.98] active:opacity-80';
+  const style = stagger(props.index ?? 0);
 
   const content = (
     <>
@@ -65,11 +68,11 @@ export function SessionCard(props: SessionCardProps) {
   );
 
   return 'to' in props ? (
-    <Link to={props.to} className={className}>
+    <Link to={props.to} className={className} style={style}>
       {content}
     </Link>
   ) : (
-    <button type="button" onClick={props.onClick} className={className}>
+    <button type="button" onClick={props.onClick} className={className} style={style}>
       {content}
     </button>
   );

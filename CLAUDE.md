@@ -2,7 +2,7 @@
 
 The product name is **MusicStand** (formerly MALguitar; the repo folder, npm package and Supabase project id still say `malguitar`).
 
-"MyAnimeList / Beli for guitarists." A **personal tool first**: I keep a library of songs (want to learn / learning / learned / shelved) and log practice sessions against each one. I use it daily as a home-screen PWA on my iPhone and in a laptop browser. A small group of friends may join later (invite-only), and maybe more people after that.
+"MyAnimeList / Beli for guitarists." A **personal tool first**: I keep a library of songs (want to learn / learning / learned / shelved) and log practice sessions against each one. I use it daily as a home-screen PWA on my iPhone and in a laptop browser. It is also posted publicly: anyone can make an account to try it and give feedback.
 
 **Guiding rule: build for one user, keep the multi-user seams.**
 - Every row keeps a `user_id` with owner-only RLS.
@@ -23,9 +23,10 @@ Plans:
 ## Stack
 - **Data:** optimistic updates for library/status/progress mutations.
 - **Backend:** Supabase: Postgres, Auth, RLS. There is no custom server.
-- **Auth:** invite-only email + password (`signInWithPassword`).
-  - No magic links or emailed codes: on iOS a link opens Safari, which doesn't share storage with the home-screen app, and hosted email is rate-limited.
-  - Accounts are created from the Supabase dashboard, and sign-ups are disabled.
+- **Auth:** open email + password sign-up (`/sign-up`) and sign-in (`/sign-in`), both behind a Cloudflare Turnstile check.
+  - Nothing is emailed: no confirmation, no magic links, no reset codes. On iOS a link opens Safari, which doesn't share storage with the home-screen app, and hosted email is rate-limited.
+  - So there is no forgot-password flow. A signed-in user changes their password in the Account sheet; a lost one is reset from the Supabase dashboard.
+  - The Turnstile widget only renders when `VITE_TURNSTILE_SITE_KEY` is set. Local development leaves it empty and the local stack asks for no captcha.
 - **Song data:** MusicBrainz + Cover Art Archive, called **from the browser** (both send CORS `*`). New catalog songs go through the `add_musicbrainz_song` RPC.
 - **Hosting:** `npm run build` → Cloudflare Pages (free, SPA fallback is automatic).
 
@@ -60,7 +61,9 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 | `button` / `on-button` | `#167F7B` / `#FFFFFF` | `#3CC4BE` / `#08302E` | Primary button fill and its label |
 | `danger` | `#C2343F` | `#FF7A85` | Errors, destructive actions |
 | `scrim` | `#142221` | `#000000` | Dimmed backdrop behind a sheet, always at reduced opacity (`bg-scrim/50`) |
+| `blush` | `#FFB4A8` | `#FF8A7A` | The mascot's cheeks, at reduced opacity. Nothing else |
 | `streak` | `#E8590C` | `#FF8A4C` | The streak flame icon. Nothing else |
+| `streak-core` | `#FFB547` | `#FFD08A` | The flame's inner core. Nothing else |
 | `streak-soft` / `on-streak-soft` | `#FFE8D9` / `#8A3A00` | `#3D2414` / `#FFB58A` | Streak badge behind the flame, and the count on it |
 | `status-want` / `on-status-want` | `#FFF0D6` / `#8A5A00` | `#3A2E12` / `#F5C46A` | "Want to learn" chip |
 | `status-learning` / `on-status-learning` | `#E0F4F3` / `#0D5754` | `#133A38` / `#7EE0DA` | "Learning" chip |
@@ -79,13 +82,14 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 - `songs`: a **shared catalog**, so the same song is the same row for everyone.
   - `source` is `musicbrainz` | `custom`.
   - MusicBrainz rows: unique `mbid`, no `created_by`. Written only by `add_musicbrainz_song()`. The RPC validates input, only accepts coverartarchive.org cover URLs, and only fills missing metadata.
-  - Custom rows: `created_by`, private to their creator.
+  - Custom rows: `created_by`, private to their creator. They may have an uploaded cover at `cover_path` (`{user_id}/covers/{random}.jpg` in the `resources` bucket, shrunk to 600 px JPEG in the browser, counted in the 50 MB). The library query fills `cover_url` with its signed URL for display; it is never written back.
 - `user_songs`: one row per user per song (`unique(user_id, song_id)`).
   - `status` enum: `want_to_learn`, `learning`, `learned`, `shelved`.
   - Other columns: `progress` 0–100, `notes`, `started_at`, `learned_at`, `updated_at`. `difficulty`, `tuning` and `capo` still exist but the UI no longer uses them.
 - `resources`: the links and files kept on a library entry (`user_song_id`), loaded with the library.
   - `kind` is `link` | `file`. A link has an http(s) `url`; a file has a `storage_path` plus `mime_type` and `size_bytes`.
   - Files live in the private `resources` storage bucket (20 MB per file) at `{user_id}/{user_song_id}/{random}.{ext}` and are opened through signed URLs.
+  - Each account may store 50 MB in total. The bucket's upload policy enforces it from what Storage recorded (`resource_bytes_used()`), and the app checks the exact total first (`MAX_TOTAL_FILE_BYTES`). Videos are meant to go in as links.
   - Rows are added or removed, never updated. They cascade with the entry; the app deletes the files itself.
 - `practice_sessions`: one sitting that can cover several songs: `practiced_at` (start time), `duration_sec` (what is stored; `duration_min` is a generated whole-minute column that the stats read), `feel` (`practice_feel`: `rough` | `okay` | `great`), `notes`.
 - `practice_session_songs`: which `user_songs` a session covered (`session_id`, `user_song_id`, `user_id`; primary key on the first two). Cascades with both sides, so deleting a library entry keeps the session.
@@ -106,8 +110,10 @@ The palette below is the whole color system. New UI uses these tokens and nothin
   - `custom` rows are CRUD for their creator only.
   - `user_songs` can only reference songs the user can see.
 - `profiles`: public read, owner write.
-- Sign-ups and anonymous sign-ins are off: `[auth] enable_signup = false` locally, and the same toggles in the hosted dashboard.
+- Sign-ups are open, so every account is a stranger's: RLS and the storage policies are the only thing between users. Anonymous sign-ins stay off.
+  - Hosted dashboard: "Allow new users to sign up" on, "Confirm email" off, Turnstile captcha on, minimum password length 8. `supabase/config.toml` mirrors this except for the captcha.
   - Don't set `[auth.email] enable_signup = false`: that disables email login entirely.
+  - Only the Turnstile site key goes in `VITE_*`. Its secret key lives in the Supabase dashboard.
 - The service-role/secret key never goes in the app or in `VITE_*`.
 
 ## MusicBrainz rules
@@ -133,7 +139,7 @@ The palette below is the whole color system. New UI uses these tokens and nothin
 - Schema/RLS changes: `supabase migration up --local` + `supabase test db`.
 - UI changes: check in a desktop browser at phone width, and on the iPhone home-screen PWA when layout, safe areas, or storage are involved.
 - Manual smoke flow:
-  1. Sign in with email + password inside the PWA.
+  1. Create an account inside the PWA: Home shows the welcome card. Change the password in the Account sheet, sign out, and sign back in.
   2. Search "Wonderwall" (Add tab) and add it as Learning.
   3. Add a link and a file, open both, and write a note.
   4. On Home tap Start practice, open the song and a resource, return: the timer kept counting.
@@ -143,7 +149,8 @@ The palette below is the whole color system. New UI uses these tokens and nothin
   8. Force-quit during a session, reopen, and confirm it's still running and you're still signed in with the data intact.
 
 ## Out of scope (don't build unless asked)
-- Open sign-ups
+- Forgot-password or any other emailed flow
+- Deleting your own account from the app
 - Social/follows/feed
 - Beli-style ranking
 - App Store/Capacitor builds

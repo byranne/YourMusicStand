@@ -39,6 +39,7 @@ function entry(
       artist,
       album: null,
       cover_url: null,
+      cover_path: null,
       duration_ms: null,
       source,
       created_by: source === 'custom' ? 'user-1' : null,

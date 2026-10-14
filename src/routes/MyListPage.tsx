@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { AccountButton } from '@/components/AccountButton';
 import { SongRow } from '@/components/SongRow';
 import { selectionForEntry, SongSheet, type SongSelection } from '@/components/SongSheet';
-import { Button, Chip, Screen } from '@/components/ui';
+import { Button, Chip, LoadError, Screen } from '@/components/ui';
 import type { SongStatus } from '@/lib/database.types';
 import { allStatuses, statusLabels } from '@/lib/library';
 import { useLibrary } from '@/lib/queries';
@@ -25,13 +25,14 @@ export function MyListPage() {
       {library.isPending ? (
         <p className="pt-16 text-center text-muted">Loading your list…</p>
       ) : library.isError ? (
-        <div className="flex flex-col items-center gap-4 pt-16 text-center">
-          <p className="text-muted">Couldn't load your list.</p>
-          <Button label="Try again" onClick={() => library.refetch()} loading={library.isFetching} />
-        </div>
+        <LoadError
+          message="Couldn't load your list."
+          onRetry={() => library.refetch()}
+          retrying={library.isFetching}
+        />
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center gap-4 pt-16 text-center">
-          <ListMusic className="size-10 text-brand" aria-hidden />
+          <ListMusic className="size-10 animate-bob text-brand" aria-hidden />
           <p className="text-muted">Songs you log show up here.</p>
           <Button label="Log your first song" onClick={() => navigate('/add')} />
         </div>
@@ -57,9 +58,10 @@ export function MyListPage() {
           </div>
 
           <div className="flex flex-col gap-2 pb-6">
-            {visible.map((entry) => (
+            {visible.map((entry, index) => (
               <SongRow
                 key={entry.id}
+                index={index}
                 title={entry.song.title}
                 artist={entry.song.artist}
                 coverUrl={entry.song.cover_url}

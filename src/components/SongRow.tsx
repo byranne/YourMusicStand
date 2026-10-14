@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 
-import { Chip, CoverArt } from '@/components/ui';
+import { Chip, CoverArt, stagger } from '@/components/ui';
 import type { SongStatus } from '@/lib/database.types';
 import { statusLabels } from '@/lib/library';
 
@@ -13,14 +13,17 @@ type SongRowProps = {
   // Shown instead of the status, e.g. the time spent on the song.
   detail?: string;
   onClick: () => void;
+  // Position in its list, so rows cascade in one after another.
+  index?: number;
 };
 
-export function SongRow({ title, artist, coverUrl, status, detail, onClick }: SongRowProps) {
+export function SongRow({ title, artist, coverUrl, status, detail, onClick, index = 0 }: SongRowProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left active:opacity-80"
+      style={stagger(index)}
+      className="flex w-full animate-rise items-center gap-3 rounded-2xl border border-border bg-surface p-3 text-left transition-transform active:scale-[0.98] active:opacity-80"
     >
       <CoverArt url={coverUrl} />
       <span className="flex min-w-0 flex-1 flex-col">

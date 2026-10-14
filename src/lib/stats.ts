@@ -136,38 +136,129 @@ export function topSongsThisWeek(
     const time = new Date(session.practiced_at).getTime();
     return time >= monday && time < nextMonday;
   });
+  // Songs from one session share its minutes, so ties fall to the song played
+  // in more sessions, then the one played last.
   return [...songTotals(thisWeek)]
+    .sort(
+      ([, a], [, b]) =>
+        b.minutes - a.minutes || b.sessions - a.sessions || b.lastPlayed.localeCompare(a.lastPlayed),
+    )
     .map(([userSongId, totals]) => ({ userSongId, minutes: totals.minutes }))
-    .sort((a, b) => b.minutes - a.minutes)
     .slice(0, limit);
+}
+
+// Whole local calendar days from a time to now. Rounded, because a
+// daylight-saving change makes a day 23 or 25 hours long.
+function localDaysAgo(iso: string, now: Date): number {
+  const then = new Date(iso);
+  return Math.round(
+    (daysAgo(now, 0).getTime() - new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime()) /
+      86_400_000,
+  );
 }
 
 // "today", "yesterday", "3 days ago", for a local calendar day.
 export function relativeDay(iso: string, now: Date): string {
-  const then = new Date(iso);
-  const days = Math.round(
-    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
-      new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime()) /
-      86_400_000,
-  );
+  const days = localDaysAgo(iso, now);
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   return `${days} days ago`;
 }
 
-// The Learning songs to offer next to Start: most recently practiced first,
-// ones never practiced last.
+// Whole local days since the most recent session; null when there is none.
+export function daysSinceLastSession(sessions: SessionTime[], now: Date): number | null {
+  if (sessions.length === 0) return null;
+  const latest = sessions.reduce((max, session) => (session.practiced_at > max ? session.practiced_at : max), '');
+  return Math.max(0, localDaysAgo(latest, now));
+}
+
+// The songs to offer next to Start: the ones played most recently, whatever
+// their status, topped up with Learning songs never played. Shelved songs are
+// left out. Songs from one session share its time, so among those Learning
+// ones come first, then the ones with the most practice.
 export function jumpBackIn<Entry extends { id: string; status: SongStatus }>(
   entries: Entry[],
   sessions: PracticeSession[],
   limit = 3,
 ): Entry[] {
   const totals = songTotals(sessions);
-  const lastPlayed = (entry: Entry) => totals.get(entry.id)?.lastPlayed ?? '';
+  const lastPlayed = (entry: Entry) => new Date(totals.get(entry.id)?.lastPlayed ?? 0).getTime();
+  const statusRank = (entry: Entry) => (entry.status === 'learning' ? 0 : 1);
+  const minutes = (entry: Entry) => totals.get(entry.id)?.minutes ?? 0;
+  const count = (entry: Entry) => totals.get(entry.id)?.sessions ?? 0;
   return entries
-    .filter((entry) => entry.status === 'learning')
-    .sort((a, b) => new Date(lastPlayed(b) || 0).getTime() - new Date(lastPlayed(a) || 0).getTime())
+    .filter((entry) => entry.status !== 'shelved' && (totals.has(entry.id) || entry.status === 'learning'))
+    .sort(
+      (a, b) =>
+        lastPlayed(b) - lastPlayed(a) ||
+        statusRank(a) - statusRank(b) ||
+        minutes(b) - minutes(a) ||
+        count(b) - count(a),
+    )
     .slice(0, limit);
+}
+
+const BRUSH_UP_AFTER_DAYS = 30;
+
+// Learned songs that are going stale: not played (or, if never played, not
+// marked Learned) for a while, the longest-neglected first. `since` is the
+// time they were last touched.
+export function brushUps<Entry extends { id: string; status: SongStatus; learned_at: string | null }>(
+  entries: Entry[],
+  sessions: PracticeSession[],
+  now: Date,
+  limit = 2,
+  staleDays = BRUSH_UP_AFTER_DAYS,
+): { entry: Entry; since: string }[] {
+  const totals = songTotals(sessions);
+  const time = (iso: string) => new Date(iso).getTime();
+  return entries
+    .flatMap((entry) => {
+      if (entry.status !== 'learned') return [];
+      const touched = [totals.get(entry.id)?.lastPlayed, entry.learned_at].filter((iso) => iso != null);
+      if (touched.length === 0) return [];
+      const since = touched.reduce((latest, iso) => (time(iso) > time(latest) ? iso : latest));
+      return localDaysAgo(since, now) >= staleDays ? [{ entry, since }] : [];
+    })
+    .sort((a, b) => time(a.since) - time(b.since))
+    .slice(0, limit);
+}
+
+// The songs to offer when the library is too long to list: played ones first,
+// most recent first, then Learning ones never played. Shelved songs are left out.
+export function recentSongs<Entry extends { id: string; status: SongStatus }>(
+  entries: Entry[],
+  sessions: PracticeSession[],
+  limit = 5,
+): Entry[] {
+  const totals = songTotals(sessions);
+  const lastPlayed = (entry: Entry) => new Date(totals.get(entry.id)?.lastPlayed ?? 0).getTime();
+  const unplayedRank = (entry: Entry) => (entry.status === 'learning' ? 0 : 1);
+  return entries
+    .filter((entry) => entry.status !== 'shelved')
+    .sort((a, b) => lastPlayed(b) - lastPlayed(a) || unplayedRank(a) - unplayedRank(b))
+    .slice(0, limit);
+}
+
+// The song most recently practiced and how many local days ago, or null when
+// none has been. Not always the latest session: a session can have no songs.
+export function lastPlayedSong<Entry extends { id: string }>(
+  entries: Entry[],
+  sessions: PracticeSession[],
+  now: Date,
+): { entry: Entry; daysAgo: number } | null {
+  const totals = songTotals(sessions);
+  let best: { entry: Entry; lastPlayed: string } | null = null;
+  for (const entry of entries) {
+    const lastPlayed = totals.get(entry.id)?.lastPlayed;
+    if (lastPlayed && (!best || lastPlayed > best.lastPlayed)) best = { entry, lastPlayed };
+  }
+  return best ? { entry: best.entry, daysAgo: Math.max(0, localDaysAgo(best.lastPlayed, now)) } : null;
+}
+
+// Minutes played so far today.
+export function minutesToday(sessions: SessionTime[], now: Date): number {
+  return weekDays(sessions, now).find((day) => day.isToday)?.minutes ?? 0;
 }
 
 export type SessionGroup<Session> = { label: string; sessions: Session[] };
@@ -201,4 +292,20 @@ export function dayLabel(iso: string, now: Date): string {
   if (relative === 'today') return 'Today';
   if (relative === 'yesterday') return 'Yesterday';
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+export type Milestone = { kind: 'sessions'; count: number } | { kind: 'streak'; days: number };
+export type Progress = { sessions: number; streak: number };
+
+const SESSION_MILESTONES = [1, 10, 25, 50, 100, 250, 500];
+const STREAK_MILESTONES = [7, 30, 100, 365];
+
+// The milestone a save just reached, if any. A streak milestone wins over a session count.
+export function crossedMilestone(before: Progress, after: Progress): Milestone | null {
+  const reached = (marks: number[], from: number, to: number) =>
+    marks.filter((mark) => from < mark && mark <= to).at(-1);
+  const days = reached(STREAK_MILESTONES, before.streak, after.streak);
+  if (days !== undefined) return { kind: 'streak', days };
+  const count = reached(SESSION_MILESTONES, before.sessions, after.sessions);
+  return count === undefined ? null : { kind: 'sessions', count };
 }

@@ -4,6 +4,8 @@ export type Resource = Tables<'resources'>;
 
 // Mirrors the file_size_limit on the 'resources' storage bucket.
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+// Mirrors the allowance in the bucket's upload policy: all of one account's files together.
+export const MAX_TOTAL_FILE_BYTES = 50 * 1024 * 1024;
 
 const MAX_LINK_LENGTH = 2000;
 const MAX_TITLE_LENGTH = 200;
@@ -41,6 +43,13 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// How much of the upload allowance a library's files take up. Links have no size.
+export function usedFileBytes(entries: { resources: Pick<Resource, 'size_bytes'>[] }[]): number {
+  return entries
+    .flatMap((entry) => entry.resources)
+    .reduce((total, resource) => total + (resource.size_bytes ?? 0), 0);
 }
 
 // The object name for an uploaded file. The first folder is the owner (the

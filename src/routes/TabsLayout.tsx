@@ -1,6 +1,7 @@
 import { House, ListMusic, NotebookPen, Plus, type LucideIcon } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
+import { MascotToast } from '@/components/MascotToast';
 import { SessionBar } from '@/components/SessionBar';
 import { SessionWatcher } from '@/components/SessionWatcher';
 import { useActiveSession } from '@/lib/activeSession';
@@ -27,9 +28,13 @@ export function TabsLayout() {
             : 'flex-1 pb-[calc(5rem+max(0.75rem,env(safe-area-inset-bottom)))]'
         }
       >
-        <Outlet />
+        {/* Keyed by the path, so each tab fades in as you switch to it. */}
+        <div key={pathname} className="animate-fade-in">
+          <Outlet />
+        </div>
       </main>
       <SessionWatcher />
+      <MascotToast />
       {showSessionBar ? <SessionBar session={session} /> : null}
       <nav className="fixed inset-x-4 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto max-w-md rounded-3xl border border-border bg-surface shadow-lg">
         <ul className="flex h-16">
@@ -45,7 +50,7 @@ export function TabsLayout() {
                   ].join(' ')
                 }
               >
-                <span className="rounded-full px-4 py-1 group-aria-[current=page]:bg-brand-soft">
+                <span className="rounded-full px-4 py-1 transition-colors group-aria-[current=page]:animate-tap group-aria-[current=page]:bg-brand-soft">
                   <Icon className="size-6" aria-hidden />
                 </span>
                 {label}

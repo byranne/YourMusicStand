@@ -1,7 +1,9 @@
 export { Button } from './Button';
 export { Chip, statusColors } from './Chip';
 export { CoverArt } from './CoverArt';
+export { LoadError } from './LoadError';
 export { Screen } from './Screen';
 export { Sheet } from './Sheet';
+export { Skeleton, stagger } from './Skeleton';
 export { TextArea } from './TextArea';
 export { TextField } from './TextField';

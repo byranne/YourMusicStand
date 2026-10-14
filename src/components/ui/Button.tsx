@@ -29,7 +29,7 @@ export function Button({
       disabled={isDisabled}
       aria-busy={loading}
       className={[
-        'flex h-12 w-full items-center justify-center rounded-xl px-6 text-base transition-opacity active:opacity-80',
+        'flex h-12 w-full items-center justify-center rounded-xl px-6 text-base transition active:scale-[0.97] active:opacity-80',
         variantClasses[variant],
         isDisabled ? 'opacity-50' : '',
       ].join(' ')}

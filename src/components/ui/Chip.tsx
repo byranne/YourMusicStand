@@ -27,10 +27,16 @@ const tones: Record<ChipTone, string> = {
 export function Chip({ label, tone, onClick, pressed }: ChipProps) {
   const base = `shrink-0 rounded-full font-medium whitespace-nowrap ${tones[tone]}`;
 
-  if (!onClick) return <span className={`${base} px-2.5 py-1 text-xs`}>{label}</span>;
+  // A label chip never grows past its container: in a narrow card it truncates.
+  if (!onClick) return <span className={`${base} max-w-full truncate px-2.5 py-1 text-xs`}>{label}</span>;
 
   return (
-    <button type="button" onClick={onClick} aria-pressed={pressed} className={`${base} h-11 px-4 text-sm`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed}
+      className={`${base} h-11 px-4 text-sm transition active:scale-95 ${pressed ? 'animate-tap' : ''}`}
+    >
       {label}
     </button>
   );
