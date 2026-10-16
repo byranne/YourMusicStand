@@ -17,6 +17,8 @@ export type Database = {
           username: string | null;
           display_name: string | null;
           avatar_url: string | null;
+          avatar_preset: string | null;
+          avatar_path: string | null;
           created_at: string;
         };
         Insert: {
@@ -24,6 +26,8 @@ export type Database = {
           username?: string | null;
           display_name?: string | null;
           avatar_url?: string | null;
+          avatar_preset?: string | null;
+          avatar_path?: string | null;
           created_at?: string;
         };
         Update: {
@@ -31,6 +35,8 @@ export type Database = {
           username?: string | null;
           display_name?: string | null;
           avatar_url?: string | null;
+          avatar_preset?: string | null;
+          avatar_path?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -43,6 +49,7 @@ export type Database = {
           artist: string;
           album: string | null;
           cover_url: string | null;
+          cover_path: string | null;
           duration_ms: number | null;
           source: SongSource;
           created_by: string | null;
@@ -55,6 +62,7 @@ export type Database = {
           artist: string;
           album?: string | null;
           cover_url?: string | null;
+          cover_path?: string | null;
           duration_ms?: number | null;
           source: SongSource;
           created_by?: string | null;
@@ -67,6 +75,7 @@ export type Database = {
           artist?: string;
           album?: string | null;
           cover_url?: string | null;
+          cover_path?: string | null;
           duration_ms?: number | null;
           source?: SongSource;
           created_by?: string | null;
@@ -87,6 +96,8 @@ export type Database = {
           notes: string | null;
           started_at: string | null;
           learned_at: string | null;
+          // An uploaded cover that replaces the song's own art for this user.
+          cover_path: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -102,6 +113,7 @@ export type Database = {
           notes?: string | null;
           started_at?: string | null;
           learned_at?: string | null;
+          cover_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -117,6 +129,7 @@ export type Database = {
           notes?: string | null;
           started_at?: string | null;
           learned_at?: string | null;
+          cover_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -163,6 +176,69 @@ export type Database = {
           created_at?: string;
         };
         Relationships: [];
+      };
+      jamlists: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          cover_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string;
+          name: string;
+          cover_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          cover_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      jamlist_songs: {
+        Row: {
+          jamlist_id: string;
+          user_song_id: string;
+          user_id: string;
+          position: number;
+        };
+        Insert: {
+          jamlist_id: string;
+          user_song_id: string;
+          user_id?: string;
+          position: number;
+        };
+        Update: {
+          jamlist_id?: string;
+          user_song_id?: string;
+          user_id?: string;
+          position?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'jamlist_songs_jamlist_id_fkey';
+            columns: ['jamlist_id'];
+            isOneToOne: false;
+            referencedRelation: 'jamlists';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'jamlist_songs_user_song_id_fkey';
+            columns: ['user_song_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_songs';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       practice_session_songs: {
         Row: {
@@ -244,9 +320,37 @@ export type Database = {
           },
         ];
       };
+      user_settings: {
+        Row: {
+          user_id: string;
+          weekly_goal_min: number | null;
+          background: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          weekly_goal_min?: number | null;
+          background?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          weekly_goal_min?: number | null;
+          background?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
+      set_jamlist_songs: {
+        Args: {
+          p_jamlist_id: string;
+          p_user_song_ids: string[];
+        };
+        Returns: undefined;
+      };
       log_practice_session: {
         Args: {
           p_practiced_at: string;

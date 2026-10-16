@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { colors } from './colors';
 
 const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
-const [lightCss, darkCss] = css.split('@media (prefers-color-scheme: dark)');
+const [lightCss, darkCss] = css.split(":root[data-theme='dark']");
 
 function parseTokens(block: string): Record<string, string> {
   const tokens: Record<string, string> = {};

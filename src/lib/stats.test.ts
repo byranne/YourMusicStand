@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
+import type { SongStatus } from './database.types';
 import {
   bestStreak,
+  brushUps,
+  crossedMilestone,
   currentStreak,
   dayLabel,
   daysPlayedThisWeek,
+  goalProgress,
   groupSessions,
   jumpBackIn,
+  lastPlayedSong,
   minutesThisWeek,
+  minutesToday,
+  recentSongs,
   relativeDay,
   songTotals,
   streakStatus,
@@ -142,6 +149,10 @@ describe('topSongsThisWeek', () => {
     const sessions = [session(0, 30, ['a']), session(1, 20, ['b'])];
     expect(topSongsThisWeek(sessions, now, 1)).toEqual([{ userSongId: 'a', minutes: 30 }]);
   });
+  it('breaks a tie on minutes by sessions, then by the latest play', () => {
+    const sessions = [session(1, 20, ['a', 'b']), session(0, 10, ['c']), session(0, 5, ['d']), session(1, 5, ['d'])];
+    expect(topSongsThisWeek(sessions, now, 4).map((top) => top.userSongId)).toEqual(['d', 'c', 'a', 'b']);
+  });
 });
 
 describe('relativeDay', () => {
@@ -153,15 +164,94 @@ describe('relativeDay', () => {
 });
 
 describe('jumpBackIn', () => {
-  const entry = (id: string, status: 'learning' | 'learned' = 'learning') => ({ id, status });
+  const entry = (id: string, status: SongStatus = 'learning') => ({ id, status });
 
-  it('offers learning songs, most recently practiced first and unpracticed last', () => {
+  it('offers the most recently played songs of any status, then unplayed learning ones', () => {
     const entries = [entry('new'), entry('old'), entry('done', 'learned'), entry('recent')];
     const sessions = [session(5, 30, ['old']), session(1, 30, ['recent', 'done'])];
-    expect(jumpBackIn(entries, sessions).map((item) => item.id)).toEqual(['recent', 'old', 'new']);
+    expect(jumpBackIn(entries, sessions).map((item) => item.id)).toEqual(['recent', 'done', 'old']);
+    expect(jumpBackIn(entries, sessions, 4).map((item) => item.id)).toEqual(['recent', 'done', 'old', 'new']);
+  });
+  it('orders songs from one session by status, then by time practiced', () => {
+    const entries = [entry('a', 'learned'), entry('b', 'learned'), entry('c'), entry('d', 'want_to_learn')];
+    const sessions = [session(1, 40, ['a', 'b', 'c', 'd']), session(6, 30, ['b'])];
+    expect(jumpBackIn(entries, sessions).map((item) => item.id)).toEqual(['c', 'b', 'a']);
+  });
+  it('leaves out shelved songs and unplayed ones that are not being learned', () => {
+    const entries = [entry('shelved', 'shelved'), entry('want', 'want_to_learn'), entry('done', 'learned')];
+    expect(jumpBackIn(entries, [session(1, 30, ['shelved'])])).toEqual([]);
   });
   it('keeps to the limit', () => {
     expect(jumpBackIn([entry('a'), entry('b'), entry('c')], [], 2)).toHaveLength(2);
+  });
+});
+
+describe('brushUps', () => {
+  const entry = (id: string, status: SongStatus, learnedDaysAgo: number | null = null) => ({
+    id,
+    status,
+    learned_at: learnedDaysAgo === null ? null : day(learnedDaysAgo),
+  });
+
+  it('offers learned songs untouched for a month, the longest-neglected first', () => {
+    const entries = [
+      entry('fresh', 'learned', 90),
+      entry('stale', 'learned', 90),
+      entry('staler', 'learned', 90),
+      entry('unplayed', 'learned', 45),
+      entry('justLearned', 'learned', 3),
+      entry('learning', 'learning'),
+    ];
+    const sessions = [
+      session(2, 30, ['fresh']),
+      session(40, 30, ['stale', 'justLearned', 'learning']),
+      session(60, 30, ['staler']),
+    ];
+    expect(brushUps(entries, sessions, now, 5)).toEqual([
+      { entry: entries[2], since: day(60) },
+      { entry: entries[3], since: day(45) },
+      { entry: entries[1], since: day(40) },
+    ]);
+    expect(brushUps(entries, sessions, now)).toHaveLength(2);
+  });
+});
+
+describe('recentSongs', () => {
+  const entry = (id: string, status: SongStatus = 'learning') => ({ id, status });
+
+  it('puts played songs first by recency, then unplayed learning songs, and drops shelved', () => {
+    const entries = [
+      entry('want', 'want_to_learn'),
+      entry('new'),
+      entry('shelved', 'shelved'),
+      entry('old', 'learned'),
+      entry('recent', 'want_to_learn'),
+    ];
+    const sessions = [session(5, 30, ['old']), session(1, 30, ['recent', 'shelved'])];
+    expect(recentSongs(entries, sessions).map((item) => item.id)).toEqual(['recent', 'old', 'new', 'want']);
+  });
+  it('keeps to the limit', () => {
+    expect(recentSongs([entry('a'), entry('b'), entry('c')], [], 2)).toHaveLength(2);
+  });
+});
+
+describe('lastPlayedSong', () => {
+  const entries = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+
+  it('finds the most recently practiced entry and how long ago, or null', () => {
+    const sessions = [session(4, 30, ['a']), session(2, 30, ['b'])];
+    expect(lastPlayedSong(entries, sessions, now)).toEqual({ entry: { id: 'b' }, daysAgo: 2 });
+    expect(lastPlayedSong(entries, [], now)).toBeNull();
+  });
+  it('looks past a later session that had no songs', () => {
+    const sessions = [session(3, 30, ['a']), session(0, 30, [])];
+    expect(lastPlayedSong(entries, sessions, now)).toEqual({ entry: { id: 'a' }, daysAgo: 3 });
+  });
+});
+
+describe('minutesToday', () => {
+  it('adds up only today', () => {
+    expect(minutesToday([session(0, 20, []), session(0, 10, []), session(1, 40, [])], now)).toBe(30);
   });
 });
 
@@ -181,5 +271,37 @@ describe('dayLabel', () => {
     expect(dayLabel(day(0), now)).toBe('Today');
     expect(dayLabel(day(1), now)).toBe('Yesterday');
     expect(dayLabel(day(4), now)).not.toMatch(/ago/);
+  });
+});
+
+describe('crossedMilestone', () => {
+  it('celebrates the first session and round session counts', () => {
+    expect(crossedMilestone({ sessions: 0, streak: 0 }, { sessions: 1, streak: 1 })).toEqual({ kind: 'sessions', count: 1 });
+    expect(crossedMilestone({ sessions: 9, streak: 0 }, { sessions: 10, streak: 1 })).toEqual({ kind: 'sessions', count: 10 });
+    expect(crossedMilestone({ sessions: 10, streak: 1 }, { sessions: 11, streak: 1 })).toBeNull();
+  });
+  it('prefers a streak milestone over a session count', () => {
+    expect(crossedMilestone({ sessions: 24, streak: 6 }, { sessions: 25, streak: 7 })).toEqual({ kind: 'streak', days: 7 });
+  });
+  it('catches a streak that jumps past a mark, as a back-dated session can', () => {
+    expect(crossedMilestone({ sessions: 40, streak: 5 }, { sessions: 41, streak: 9 })).toEqual({ kind: 'streak', days: 7 });
+  });
+  it('ignores a streak that stays the same or drops', () => {
+    expect(crossedMilestone({ sessions: 3, streak: 7 }, { sessions: 4, streak: 7 })).toBeNull();
+  });
+});
+
+describe('goalProgress', () => {
+  it('measures the week against the goal', () => {
+    expect(goalProgress(45, 120)).toEqual({ ratio: 0.375, remaining: 75, met: false });
+  });
+
+  it('caps at the goal once it is met', () => {
+    expect(goalProgress(150, 120)).toEqual({ ratio: 1, remaining: 0, met: true });
+    expect(goalProgress(120, 120).met).toBe(true);
+  });
+
+  it('starts empty', () => {
+    expect(goalProgress(0, 60)).toEqual({ ratio: 0, remaining: 60, met: false });
   });
 });

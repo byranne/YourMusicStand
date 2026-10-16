@@ -19,9 +19,10 @@ export const feelLabels: Record<PracticeFeel, string> = { rough: 'Rough', okay: 
 export const MAX_SECONDS = 86_400; // matches the duration_sec check on practice_sessions
 const ABANDONED_AFTER_MS = 3 * 60 * 60 * 1000;
 
-export function startSession(now: Date): ActiveSession {
+// `touched` pre-ticks songs, e.g. when practice starts from a song or a jamlist.
+export function startSession(now: Date, touched: readonly string[] = []): ActiveSession {
   const iso = now.toISOString();
-  return { startedAt: iso, lastSeenAt: iso, touched: [] };
+  return { startedAt: iso, lastSeenAt: iso, touched: [...new Set(touched)] };
 }
 
 export function touchSong(session: ActiveSession, entryId: string, now: Date): ActiveSession {
@@ -65,6 +66,13 @@ export function elapsedSeconds(session: ActiveSession, now: Date): number {
   return Math.min(MAX_SECONDS, Math.max(1, seconds));
 }
 
+// Nudges a duration by whole minutes, for the recap's "+5 min" style buttons.
+// A step that would leave nothing is ignored rather than clamped.
+export function adjustSeconds(seconds: number, deltaMinutes: number): number {
+  const next = seconds + deltaMinutes * 60;
+  return next < 1 ? seconds : Math.min(MAX_SECONDS, next);
+}
+
 // A locked phone during a long session is normal, so this is deliberately long.
 // Anything shorter is fixed with the recap's editable duration.
 export function isProbablyAbandoned(session: ActiveSession, now: Date): boolean {
@@ -87,6 +95,28 @@ export function recapOrder(library: LibraryEntry[], touched: string[]): LibraryE
     return opened >= 0 ? opened : touched.length + recapStatusOrder.indexOf(entry.status);
   };
   return [...library].sort((a, b) => rank(a) - rank(b));
+}
+
+// A local calendar day as 'YYYY-MM-DD', the value a date input uses.
+export function dateInputValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// When a session logged after the fact is taken to have happened: now for
+// today, otherwise noon on that local day ('YYYY-MM-DD'). Never in the future.
+export function pastSessionTime(day: string, now: Date): Date {
+  if (day === dateInputValue(now)) return now;
+  const [year, month, date] = day.split('-').map(Number);
+  const noon = new Date(year, month - 1, date, 12);
+  return Number.isNaN(noon.getTime()) || noon > now ? now : noon;
+}
+
+// "Wonderwall, Blackbird and 4 more": a long list of titles in one line.
+export function summarizeTitles(titles: string[], shown = 2): string {
+  const rest = titles.length - shown;
+  const listed = titles.slice(0, shown).join(', ');
+  return rest > 0 ? `${listed} and ${rest} more` : listed;
 }
 
 // Timer text: 12:34, or 1:02:03 past an hour.

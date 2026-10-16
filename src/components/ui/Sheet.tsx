@@ -7,14 +7,17 @@ type SheetProps = {
   onOpenChange: (open: boolean) => void;
   // Read by screen readers; the visible heading is up to the content.
   title: string;
+  // Opened from inside another sheet, which stays underneath.
+  nested?: boolean;
   children: ReactNode;
 };
 
 // Bottom sheet: drag down, tap outside or tap the X to close. Content scrolls inside, and
 // the bottom padding clears the iOS home indicator.
-export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, nested = false, children }: SheetProps) {
+  const Root = nested ? Drawer.NestedRoot : Drawer.Root;
   return (
-    <Drawer.Root open={open} onOpenChange={onOpenChange}>
+    <Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-scrim/50" />
         <Drawer.Content
@@ -36,6 +39,6 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
           </div>
         </Drawer.Content>
       </Drawer.Portal>
-    </Drawer.Root>
+    </Root>
   );
 }

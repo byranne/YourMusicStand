@@ -1,6 +1,7 @@
+import { Camera } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { CoverArt, Sheet, TextField } from '@/components/ui';
+import { Button, CoverArt, Sheet, TextField } from '@/components/ui';
 import type { SongStatus } from '@/lib/database.types';
 import {
   defaultsForStatus,
@@ -15,14 +16,18 @@ import {
   useLogSong,
   useRemoveEntry,
   useSessions,
+  useSetCover,
   useUpdateEntry,
 } from '@/lib/queries';
 import { useActiveSession } from '@/lib/activeSession';
+import { react } from '@/lib/mascotEvents';
 import { formatMinutes } from '@/lib/practice';
 import { customSongSchema } from '@/lib/schemas/entry';
 import { relativeDay, songTotals } from '@/lib/stats';
 
+import { ImageCropper } from './ImageCropper';
 import { LogButton } from './LogButton';
+import { SongJamlists } from './SongJamlists';
 import { SongNotes } from './SongNotes';
 import { SongResources } from './SongResources';
 
@@ -91,11 +96,14 @@ export function SongSheet({ selection, onSelect, onClose }: SongSheetProps) {
 
   const log = (candidate: SongCandidate, status: SongStatus) => {
     setFailed(false);
-    logSong.mutate({ candidate, status }, { onError });
+    logSong.mutate({ candidate, status }, { onError, onSuccess: () => react('songAdded') });
   };
   const setStatus = (entry: LibraryEntry, status: SongStatus) => {
     setFailed(false);
-    updateEntry.mutate({ id: entry.id, patch: { status, ...defaultsForStatus(status) } }, { onError });
+    updateEntry.mutate(
+      { id: entry.id, patch: { status, ...defaultsForStatus(status) } },
+      { onError, onSuccess: () => status === 'learned' && react('songLearned') },
+    );
   };
 
   let body = null;
@@ -166,6 +174,9 @@ type SongBodyProps = {
 
 function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const setCover = useSetCover();
+  // The photo waiting in the cropper.
+  const [pickedCover, setPickedCover] = useState<File | null>(null);
 
   const catalog = candidate?.source === 'musicbrainz' ? candidate : null;
   const song = entry
@@ -189,7 +200,7 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
   const isSaved = entry !== undefined && !isPendingEntry(entry);
 
   // Opening or adding a song while a session runs counts it as practiced.
-  const { session, touch } = useActiveSession();
+  const { session, touch, startWith } = useActiveSession();
   const entryId = isSaved ? entry.id : null;
   const sessionRunning = session !== null;
   useEffect(() => {
@@ -202,7 +213,45 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-4">
-        <CoverArt url={song.coverUrl} size="lg" />
+        {isSaved ? (
+          // Any saved song can get the user's own picture in place of its art.
+          <>
+            <label
+              aria-busy={setCover.isPending}
+              className={`relative shrink-0 cursor-pointer active:opacity-80 ${setCover.isPending ? 'opacity-60' : ''}`}
+            >
+              <CoverArt url={song.coverUrl} size="lg" />
+              <span className="absolute right-1.5 bottom-1.5 flex size-8 items-center justify-center rounded-full border border-border bg-surface text-text">
+                <Camera className="size-4" aria-hidden />
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                aria-label={song.coverUrl ? 'Change cover image' : 'Add a cover image'}
+                disabled={setCover.isPending}
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // Cleared so picking the same photo again still fires a change.
+                  event.target.value = '';
+                  if (file) setPickedCover(file);
+                }}
+              />
+            </label>
+            <ImageCropper
+              file={pickedCover}
+              shape="square"
+              title="Crop the cover"
+              onCancel={() => setPickedCover(null)}
+              onConfirm={(crop) => {
+                if (pickedCover) setCover.mutate({ entry, image: { file: pickedCover, crop } });
+                setPickedCover(null);
+              }}
+            />
+          </>
+        ) : (
+          <CoverArt url={song.coverUrl} size="lg" />
+        )}
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="text-xl leading-tight font-bold text-text">{song.title}</h2>
           <p className="text-base text-muted">{song.artist}</p>
@@ -210,16 +259,37 @@ function SongBody({ entry, candidate, onPick, onRemove }: SongBodyProps) {
         </div>
       </div>
 
+      {setCover.isError ? (
+        <p className="text-sm text-danger">Couldn't save the cover. Check your connection and try again.</p>
+      ) : null}
+
+      {isSaved && entry.cover_path && entry.song.source === 'musicbrainz' ? (
+        <button
+          type="button"
+          disabled={setCover.isPending}
+          onClick={() => setCover.mutate({ entry, image: null })}
+          className="-mt-3 h-11 self-start text-sm font-medium text-muted"
+        >
+          Use the album cover
+        </button>
+      ) : null}
+
       <LogButton
         status={entry?.status ?? null}
         disabled={entry !== undefined && !isSaved}
         onPick={onPick}
       />
 
+      {isSaved && !sessionRunning ? (
+        // A running session already counts this song (it was ticked on open).
+        <Button label="Start practice" variant="secondary" onClick={() => startWith([entry.id])} />
+      ) : null}
+
       {isSaved ? (
         <>
           <div className="flex flex-col gap-5 border-t border-border pt-4">
             <SongTotals entryId={entry.id} />
+            <SongJamlists entry={entry} />
             <SongResources entry={entry} />
             <SongNotes entry={entry} />
           </div>

@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import type { LibraryEntry } from './library';
 import {
+  adjustSeconds,
+  dateInputValue,
   elapsedSeconds,
   formatClock,
   formatMinutes,
   formatSeconds,
   isProbablyAbandoned,
+  pastSessionTime,
   pauseSession,
   playedMs,
   recapOrder,
   resumeSession,
   startSession,
   suggestedSongs,
+  summarizeTitles,
   touchSong,
 } from './practice';
 
@@ -27,6 +31,14 @@ describe('touchSong', () => {
     session = touchSong(session, 'a', after(3));
     expect(session.touched).toEqual(['a', 'b']);
     expect(session.lastSeenAt).toBe(after(3).toISOString());
+    expect(session.startedAt).toBe(t0.toISOString());
+  });
+});
+
+describe('startSession', () => {
+  it('can start with songs already ticked, once each', () => {
+    const session = startSession(t0, ['a', 'b', 'a']);
+    expect(session.touched).toEqual(['a', 'b']);
     expect(session.startedAt).toBe(t0.toISOString());
   });
 });
@@ -131,5 +143,45 @@ describe('formatting', () => {
     expect(formatSeconds(754)).toBe('12:34');
     expect(formatSeconds(1800)).toBe('30:00');
     expect(formatSeconds(4805)).toBe('1:20:05');
+  });
+});
+
+describe('pastSessionTime', () => {
+  it('is now for today and local noon for an earlier day', () => {
+    expect(dateInputValue(t0)).toBe('2026-10-13');
+    expect(pastSessionTime('2026-10-13', t0)).toBe(t0);
+    expect(pastSessionTime('2026-10-12', t0)).toEqual(new Date(2026, 9, 12, 12));
+    expect(pastSessionTime('2026-09-03', t0)).toEqual(new Date(2026, 8, 3, 12));
+  });
+  it('falls back to now for a future or unreadable day', () => {
+    expect(pastSessionTime('2026-10-14', t0)).toBe(t0);
+    expect(pastSessionTime('', t0)).toBe(t0);
+  });
+});
+
+describe('summarizeTitles', () => {
+  it('lists the first titles and counts the rest', () => {
+    expect(summarizeTitles([])).toBe('');
+    expect(summarizeTitles(['A', 'B'])).toBe('A, B');
+    expect(summarizeTitles(['A', 'B', 'C', 'D'])).toBe('A, B and 2 more');
+  });
+});
+
+describe('adjustSeconds', () => {
+  it('adds and removes whole minutes, keeping the seconds', () => {
+    expect(adjustSeconds(754, 5)).toBe(1054);
+    expect(adjustSeconds(754, 1)).toBe(814);
+    expect(adjustSeconds(754, -1)).toBe(694);
+    expect(adjustSeconds(754, -5)).toBe(454);
+  });
+
+  it('ignores a step that would leave nothing', () => {
+    expect(adjustSeconds(45, -1)).toBe(45);
+    expect(adjustSeconds(300, -5)).toBe(300);
+    expect(adjustSeconds(301, -5)).toBe(1);
+  });
+
+  it('stops at a full day', () => {
+    expect(adjustSeconds(86_400 - 60, 5)).toBe(86_400);
   });
 });

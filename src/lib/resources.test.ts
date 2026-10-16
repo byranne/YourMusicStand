@@ -7,6 +7,7 @@ import {
   normalizeLink,
   sortResources,
   storagePathFor,
+  usedFileBytes,
   type Resource,
 } from './resources';
 
@@ -79,5 +80,21 @@ describe('sortResources', () => {
     const resources = [resource('b', '2026-10-02T00:00:00Z'), resource('a', '2026-10-01T00:00:00Z')];
     expect(sortResources(resources).map((r) => r.id)).toEqual(['a', 'b']);
     expect(resources[0].id).toBe('b');
+  });
+});
+
+describe('usedFileBytes', () => {
+  it('adds up the files across every entry and skips links', () => {
+    expect(
+      usedFileBytes([
+        { resources: [{ size_bytes: 1_000 }, { size_bytes: null }] },
+        { resources: [] },
+        { resources: [{ size_bytes: 2_500 }] },
+      ]),
+    ).toBe(3_500);
+  });
+
+  it('is zero for an empty library', () => {
+    expect(usedFileBytes([])).toBe(0);
   });
 });

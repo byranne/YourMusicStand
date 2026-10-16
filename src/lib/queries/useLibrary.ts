@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { SongStatus, Tables } from '../database.types';
+import { coverPathFor, shrinkCover } from '../covers';
+import type { Crop } from '../crop';
 import { defaultsForStatus, type LibraryEntry, type SongCandidate } from '../library';
 import { supabase } from '../supabase';
-import { removeResourceFiles } from './resourceFiles';
+import { removeResourceFiles, signCovers, uploadCover } from './resourceFiles';
+import { jamlistsKey } from './useJamlists';
 import { useSession } from './useSession';
 
 const ENTRY_SELECT = '*, song:songs(*), resources(*)';
@@ -12,6 +15,20 @@ const PENDING_PREFIX = 'pending-';
 export const libraryKey = (userId: string | undefined) => ['library', userId] as const;
 
 export type EntryPatch = Partial<Pick<Tables<'user_songs'>, 'status' | 'progress' | 'notes'>>;
+
+// An entry's uploaded cover is shown through song.cover_url, filled in here with
+// a signed URL for the entry's cover_path, in place of the catalog art. It is
+// display-only and never written back.
+async function withCovers(entries: LibraryEntry[]): Promise<LibraryEntry[]> {
+  const paths = entries.flatMap((entry) => (entry.cover_path ? [entry.cover_path] : []));
+  if (paths.length === 0) return entries;
+  // A cover that can't be signed shows the placeholder rather than failing the library.
+  const urls = await signCovers(paths).catch(() => ({}) as Record<string, string>);
+  return entries.map((entry) => {
+    const url = entry.cover_path ? urls[entry.cover_path] : undefined;
+    return url ? { ...entry, song: { ...entry.song, cover_url: url } } : entry;
+  });
+}
 
 // An entry that was added optimistically and has no row id yet, so it can't be edited.
 export function isPendingEntry(entry: LibraryEntry): boolean {
@@ -33,7 +50,7 @@ export function useLibrary() {
         .select(ENTRY_SELECT)
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return withCovers(data);
     },
   });
 }
@@ -81,6 +98,7 @@ function pendingEntry(candidate: SongCandidate, status: SongStatus, userId: stri
     notes: null,
     started_at: null,
     learned_at: null,
+    cover_path: null,
     created_at: now,
     updated_at: now,
     ...defaultsForStatus(status),
@@ -92,6 +110,7 @@ function pendingEntry(candidate: SongCandidate, status: SongStatus, userId: stri
       artist: candidate.artist,
       album: catalog?.album ?? null,
       cover_url: catalog?.coverUrl ?? null,
+      cover_path: null,
       duration_ms: catalog?.durationMs ?? null,
       source: candidate.source,
       created_by: catalog ? null : userId,
@@ -122,7 +141,8 @@ export function useLogSong() {
         .select(ENTRY_SELECT)
         .single();
       if (error) throw error;
-      return data satisfies LibraryEntry;
+      const [entry] = await withCovers([data satisfies LibraryEntry]);
+      return entry;
     },
     onMutate: async ({ candidate, status }) => {
       if (!userId) return undefined;
@@ -165,7 +185,8 @@ export function useUpdateEntry() {
         .select(ENTRY_SELECT)
         .single();
       if (error) throw error;
-      return data satisfies LibraryEntry;
+      const [entry] = await withCovers([data satisfies LibraryEntry]);
+      return entry;
     },
     onMutate: async ({ id, patch }) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -178,6 +199,36 @@ export function useUpdateEntry() {
       const previous = context?.previous;
       if (previous) replace(id, () => previous);
     },
+  });
+}
+
+// Uploads a picture as an entry's cover, replacing any earlier one, or with no
+// file goes back to the song's own art. Any song can have one: on a catalog
+// song it only changes what this user sees.
+export function useSetCover() {
+  const queryClient = useQueryClient();
+  const { session } = useSession();
+  const userId = session?.user.id;
+
+  return useMutation({
+    mutationFn: async ({ entry, image }: { entry: LibraryEntry; image: { file: File; crop: Crop } | null }) => {
+      if (!userId) throw new Error('You are signed out. Sign in and try again.');
+      let path: string | null = null;
+      if (image) {
+        const jpeg = await shrinkCover(image.file, { crop: image.crop });
+        // Not crypto.randomUUID(): that needs HTTPS, and the dev server is plain HTTP on the LAN.
+        path = coverPathFor(userId, `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        await uploadCover(path, jpeg);
+      }
+
+      const { error } = await supabase.from('user_songs').update({ cover_path: path }).eq('id', entry.id);
+      if (error) {
+        if (path) await removeResourceFiles([{ storage_path: path }]);
+        throw error;
+      }
+      if (entry.cover_path) await removeResourceFiles([{ storage_path: entry.cover_path }]);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: libraryKey(userId) }),
   });
 }
 
@@ -196,7 +247,7 @@ export function useRemoveEntry() {
           : await supabase.from('user_songs').delete().eq('id', entry.id);
       if (error) throw error;
       // The resource rows cascade with the entry; their files don't.
-      await removeResourceFiles(entry.resources);
+      await removeResourceFiles([...entry.resources, { storage_path: entry.cover_path }]);
     },
     onMutate: async (entry) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -209,6 +260,10 @@ export function useRemoveEntry() {
     onError: (_error, _entry, context) => {
       if (context?.previous) queryClient.setQueryData(key, context.previous);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSettled: () => {
+      // The entry's jamlist rows cascade with it.
+      void queryClient.invalidateQueries({ queryKey: jamlistsKey(session?.user.id) });
+      return queryClient.invalidateQueries({ queryKey: key });
+    },
   });
 }
