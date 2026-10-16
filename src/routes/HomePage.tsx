@@ -3,7 +3,6 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { AccountButton } from '@/components/AccountButton';
-import { Equalizer } from '@/components/Equalizer';
 import { Mascot } from '@/components/Mascot';
 import { NoteBurst } from '@/components/NoteBurst';
 import { SessionCard } from '@/components/SessionCard';
@@ -20,7 +19,7 @@ import { useActiveSession } from '@/lib/activeSession';
 import { firstName } from '@/lib/avatars';
 import { pickGreeting, type Greeting } from '@/lib/greeting';
 import { statusLabels, type LibraryEntry } from '@/lib/library';
-import { formatMinutes, type ActiveSession } from '@/lib/practice';
+import { formatMinutes, practiceActivity, type ActiveSession } from '@/lib/practice';
 import { useLibrary, useProfile, useSessions, useSettings } from '@/lib/queries';
 import {
   brushUps,
@@ -533,7 +532,7 @@ function RunningPanel({ session, selection, onSelect: setSelection }: RunningPan
         <p role="timer" className={`text-5xl font-bold tabular-nums ${paused ? 'text-muted' : 'text-text'}`}>
           {clock}
         </p>
-        <Equalizer paused={paused} className="h-6 gap-1 text-brand" />
+        <Mascot mood="happy" activity={practiceActivity(session)} paused={paused} size={112} />
         <div className="flex w-full gap-2">
           <Button label={paused ? 'Resume' : 'Pause'} variant="secondary" onClick={paused ? resume : pause} />
           <Button

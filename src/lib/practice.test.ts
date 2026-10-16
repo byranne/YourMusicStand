@@ -12,6 +12,8 @@ import {
   pastSessionTime,
   pauseSession,
   playedMs,
+  practiceActivities,
+  practiceActivity,
   recapOrder,
   resumeSession,
   startSession,
@@ -183,5 +185,27 @@ describe('adjustSeconds', () => {
 
   it('stops at a full day', () => {
     expect(adjustSeconds(86_400 - 60, 5)).toBe(86_400);
+  });
+});
+
+describe('practiceActivity', () => {
+  it('stays the same for one session', () => {
+    const session = { startedAt: '2026-10-14T09:30:12.000Z' };
+    expect(practiceActivity(session)).toBe(practiceActivity({ ...session }));
+  });
+
+  it('cycles through every activity across start times', () => {
+    const seen = new Set(
+      [0, 1, 2].map((second) =>
+        practiceActivity({
+          startedAt: new Date(Date.UTC(2026, 9, 14, 9, 30, second)).toISOString(),
+        }),
+      ),
+    );
+    expect([...seen].sort()).toEqual([...practiceActivities].sort());
+  });
+
+  it('falls back to guitar for an unreadable start time', () => {
+    expect(practiceActivity({ startedAt: 'not a date' })).toBe('guitar');
   });
 });

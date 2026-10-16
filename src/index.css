@@ -25,6 +25,12 @@
   --animate-shimmer: shimmer 1.4s linear infinite;
   --animate-burst: burst 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-tap: tap 0.35s ease-out;
+  --animate-groove: groove 0.9s ease-in-out infinite alternate;
+  --animate-strum: strum 0.45s ease-in-out infinite alternate;
+  --animate-press: press 2.4s ease-in-out infinite;
+  --animate-press-bar: press-bar 2.4s ease-in-out infinite;
+  --animate-sway: sway 2s ease-in-out infinite;
+  --animate-sing: sing 0.6s ease-in-out infinite alternate;
 
   /* The flame sways from its base; the core runs a faster, reversed copy so they never line up. */
   @keyframes flicker {
@@ -214,6 +220,64 @@
     }
     to {
       transform: scaleY(0.45);
+    }
+  }
+
+  /* The practicing mascot: rocking to the guitar, pressing a barbell, swaying while it sings. */
+  @keyframes groove {
+    from {
+      transform: rotate(-3deg);
+    }
+    to {
+      transform: rotate(3deg);
+    }
+  }
+  @keyframes strum {
+    from {
+      transform: rotate(-7deg);
+    }
+    to {
+      transform: rotate(5deg);
+    }
+  }
+  /* The arms shrink from the shoulders by exactly as much as the bar drops (100/140 of 140 units). */
+  @keyframes press {
+    0%,
+    15%,
+    100% {
+      transform: scaleY(1);
+    }
+    50%,
+    65% {
+      transform: scaleY(0.714);
+    }
+  }
+  @keyframes press-bar {
+    0%,
+    15%,
+    100% {
+      transform: translateY(0);
+    }
+    50%,
+    65% {
+      transform: translateY(40px);
+    }
+  }
+  @keyframes sway {
+    0%,
+    100% {
+      transform: rotate(-4deg);
+    }
+    50% {
+      transform: rotate(4deg);
+    }
+  }
+  @keyframes sing {
+    from {
+      transform: scaleY(0.6);
+    }
+    to {
+      transform: scaleY(1);
     }
   }
 
