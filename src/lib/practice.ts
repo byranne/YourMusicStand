@@ -16,6 +16,17 @@ export type ActiveSession = {
 
 export const feelLabels: Record<PracticeFeel, string> = { rough: 'Rough', okay: 'Okay', great: 'Great' };
 
+// What the mascot does while a session runs. Picked from the start time, so it
+// stays the same through relaunches and changes from one session to the next.
+export const practiceActivities = ['guitar', 'lifting', 'singing'] as const;
+export type PracticeActivity = (typeof practiceActivities)[number];
+
+export function practiceActivity(session: Pick<ActiveSession, 'startedAt'>): PracticeActivity {
+  const seconds = Math.floor(Date.parse(session.startedAt) / 1000);
+  if (!Number.isFinite(seconds)) return 'guitar';
+  return practiceActivities[seconds % practiceActivities.length];
+}
+
 export const MAX_SECONDS = 86_400; // matches the duration_sec check on practice_sessions
 const ABANDONED_AFTER_MS = 3 * 60 * 60 * 1000;
 
